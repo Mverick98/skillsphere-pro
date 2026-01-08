@@ -5,6 +5,7 @@ import AssessmentWindow from '@/components/assessment/AssessmentWindow';
 import AssessmentLoading from '@/components/assessment/AssessmentLoading';
 import EvaluationDashboard from './EvaluationDashboard';
 import ProctoringConsent from '@/components/assessment/ProctoringConsent';
+import AssessmentTypeSelector from '@/components/assessment/AssessmentTypeSelector';
 
 const AssessmentRouter = () => {
   const { currentStep, isAuthenticated } = useAssessment();
@@ -14,6 +15,8 @@ const AssessmentRouter = () => {
   }
 
   switch (currentStep) {
+    case 'type-select':
+      return <AssessmentTypeSelector />;
     case 'config':
       return (
         <>
