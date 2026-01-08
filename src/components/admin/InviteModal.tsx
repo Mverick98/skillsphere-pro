@@ -1,27 +1,41 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { X, Mail, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/services/api';
 
+interface Template {
+  id: string;
+  name: string;
+}
+
 interface InviteModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  templateId: string;
-  templateName: string;
+  templates?: Template[];
+  preselectedTemplateId?: string;
 }
 
-export const InviteModal = ({ open, onOpenChange, templateId, templateName }: InviteModalProps) => {
+export const InviteModal = ({ open, onOpenChange, templates = [], preselectedTemplateId }: InviteModalProps) => {
+  const [selectedTemplateId, setSelectedTemplateId] = useState(preselectedTemplateId || '');
   const [singleEmail, setSingleEmail] = useState('');
   const [bulkEmails, setBulkEmails] = useState('');
   const [addedEmails, setAddedEmails] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+
+  const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
+
+  useEffect(() => {
+    if (preselectedTemplateId) {
+      setSelectedTemplateId(preselectedTemplateId);
+    }
+  }, [preselectedTemplateId]);
 
   const isValidEmail = (email: string) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -60,6 +74,10 @@ export const InviteModal = ({ open, onOpenChange, templateId, templateName }: In
   };
 
   const handleSend = async () => {
+    if (!selectedTemplateId) {
+      toast({ title: 'No template selected', description: 'Please select a test template', variant: 'destructive' });
+      return;
+    }
     if (addedEmails.length === 0) {
       toast({ title: 'No emails', description: 'Please add at least one email address', variant: 'destructive' });
       return;
@@ -67,7 +85,7 @@ export const InviteModal = ({ open, onOpenChange, templateId, templateName }: In
 
     setIsLoading(true);
     try {
-      await api.admin.inviteCandidates(templateId, addedEmails);
+      await api.admin.inviteCandidates(selectedTemplateId, addedEmails);
       toast({ title: 'Invitations sent', description: `Successfully invited ${addedEmails.length} candidate(s)` });
       setAddedEmails([]);
       onOpenChange(false);
@@ -82,6 +100,9 @@ export const InviteModal = ({ open, onOpenChange, templateId, templateName }: In
     setAddedEmails([]);
     setSingleEmail('');
     setBulkEmails('');
+    if (!preselectedTemplateId) {
+      setSelectedTemplateId('');
+    }
     onOpenChange(false);
   };
 
@@ -93,8 +114,21 @@ export const InviteModal = ({ open, onOpenChange, templateId, templateName }: In
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="text-sm text-muted-foreground">
-            Test: <span className="font-medium text-foreground">{templateName}</span>
+          {/* Template Selector */}
+          <div className="space-y-2">
+            <Label>Select Test Template *</Label>
+            <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Choose a test template" />
+              </SelectTrigger>
+              <SelectContent>
+                {templates.map(template => (
+                  <SelectItem key={template.id} value={template.id}>
+                    {template.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Single email input */}
@@ -149,23 +183,25 @@ export const InviteModal = ({ open, onOpenChange, templateId, templateName }: In
             </div>
           )}
 
-          {/* Email preview */}
-          <div className="space-y-2">
-            <Label>Email Preview</Label>
-            <div className="border rounded-lg p-4 bg-muted/30 text-sm">
-              <p className="font-medium mb-2">Subject: You've been invited to take an assessment</p>
-              <p className="text-muted-foreground">
-                Hi,<br /><br />
-                You have been invited to take a proficiency assessment for {templateName}.<br /><br />
-                Click the link below to begin your assessment...
-              </p>
+          {/* Email Preview */}
+          {selectedTemplate && (
+            <div className="space-y-2">
+              <Label>Email Preview</Label>
+              <div className="border rounded-lg p-4 bg-muted/30 text-sm">
+                <p className="font-medium mb-2">Subject: You've been invited to take an assessment</p>
+                <p className="text-muted-foreground">
+                  Hi,<br /><br />
+                  You have been invited to take a proficiency assessment for {selectedTemplate.name}.<br /><br />
+                  Click the link below to begin your assessment...
+                </p>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={handleClose}>Cancel</Button>
-          <Button onClick={handleSend} disabled={addedEmails.length === 0 || isLoading}>
+          <Button onClick={handleSend} disabled={!selectedTemplateId || addedEmails.length === 0 || isLoading}>
             <Mail className="h-4 w-4 mr-2" />
             Send to {addedEmails.length} candidate{addedEmails.length !== 1 ? 's' : ''}
           </Button>
