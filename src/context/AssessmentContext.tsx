@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { Role, Skill, Task, Question, AssessmentResult, generateQuestions, generateMockResults, Complexity } from '@/data/mockData';
 
+type AssessmentType = 'skill' | 'persona' | null;
+
 interface SelectedTask {
   skillId: string;
   skillName: string;
@@ -11,7 +13,8 @@ interface SelectedTask {
 
 interface AssessmentState {
   isAuthenticated: boolean;
-  currentStep: 'login' | 'config' | 'proctoring' | 'assessment' | 'loading' | 'results';
+  currentStep: 'login' | 'type-select' | 'config' | 'proctoring' | 'assessment' | 'loading' | 'results';
+  assessmentType: AssessmentType;
   selectedRole: Role | null;
   selectedSkills: Skill[];
   selectedTasks: SelectedTask[];
@@ -30,6 +33,7 @@ interface AssessmentContextType extends AssessmentState {
   login: (username: string, password: string) => boolean;
   logout: () => void;
   setStep: (step: AssessmentState['currentStep']) => void;
+  setAssessmentType: (type: 'skill' | 'persona') => void;
   selectRole: (role: Role) => void;
   toggleSkill: (skill: Skill) => void;
   toggleTask: (skillId: string, task: Task) => void;
@@ -62,6 +66,7 @@ export const AssessmentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [state, setState] = useState<AssessmentState>({
     isAuthenticated: false,
     currentStep: 'login',
+    assessmentType: null,
     selectedRole: null,
     selectedSkills: [],
     selectedTasks: [],
@@ -79,7 +84,7 @@ export const AssessmentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const login = useCallback((username: string, password: string) => {
     // Hardcoded auth for demo
     if (username === 'demo' && password === 'demo123') {
-      setState(prev => ({ ...prev, isAuthenticated: true, currentStep: 'config' }));
+      setState(prev => ({ ...prev, isAuthenticated: true, currentStep: 'type-select' }));
       return true;
     }
     return false;
@@ -89,6 +94,7 @@ export const AssessmentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setState({
       isAuthenticated: false,
       currentStep: 'login',
+      assessmentType: null,
       selectedRole: null,
       selectedSkills: [],
       selectedTasks: [],
@@ -108,6 +114,15 @@ export const AssessmentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setState(prev => ({ ...prev, currentStep: step }));
   }, []);
 
+  const setAssessmentType = useCallback((type: 'skill' | 'persona') => {
+    setState(prev => ({
+      ...prev,
+      assessmentType: type,
+      selectedSkills: [],
+      selectedTasks: [],
+    }));
+  }, []);
+
   const selectRole = useCallback((role: Role) => {
     setState(prev => ({
       ...prev,
@@ -121,6 +136,24 @@ export const AssessmentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setState(prev => {
       const isSelected = prev.selectedSkills.some(s => s.id === skill.id);
       
+      // Skill mode: replace selection (single skill only)
+      if (prev.assessmentType === 'skill') {
+        if (isSelected) {
+          return {
+            ...prev,
+            selectedSkills: [],
+            selectedTasks: [],
+          };
+        } else {
+          return {
+            ...prev,
+            selectedSkills: [skill],
+            selectedTasks: [],
+          };
+        }
+      }
+      
+      // Persona mode: toggle with max 5
       if (isSelected) {
         return {
           ...prev,
@@ -192,10 +225,14 @@ export const AssessmentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, []);
 
   const getEstimatedTime = useCallback(() => {
-    const baseTime = 5;
-    const additionalTime = Math.min(state.selectedSkills.length - 1, 5) * 3;
-    return Math.min(baseTime + additionalTime, 20);
-  }, [state.selectedSkills.length]);
+    if (state.assessmentType === 'skill') {
+      return 10;
+    }
+    // Persona mode
+    const baseTime = 10;
+    const additionalTime = Math.max(0, state.selectedSkills.length - 1) * 5;
+    return Math.min(baseTime + additionalTime, 30);
+  }, [state.assessmentType, state.selectedSkills.length]);
 
   const canStartAssessment = useCallback(() => {
     if (state.selectedSkills.length === 0) return false;
@@ -277,7 +314,8 @@ export const AssessmentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const resetAssessment = useCallback(() => {
     setState(prev => ({
       ...prev,
-      currentStep: 'config',
+      currentStep: 'type-select',
+      assessmentType: null,
       selectedRole: null,
       selectedSkills: [],
       selectedTasks: [],
@@ -299,6 +337,7 @@ export const AssessmentProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         login,
         logout,
         setStep,
+        setAssessmentType,
         selectRole,
         toggleSkill,
         toggleTask,

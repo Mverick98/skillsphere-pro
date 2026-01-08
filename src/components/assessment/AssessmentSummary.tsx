@@ -2,10 +2,11 @@ import { useAssessment } from '@/context/AssessmentContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Briefcase, BookOpen, ListChecks, Clock, ArrowRight, AlertCircle } from 'lucide-react';
+import { Briefcase, BookOpen, ListChecks, Clock, ArrowRight, AlertCircle, Target, Users } from 'lucide-react';
 
 const AssessmentSummary = () => {
   const {
+    assessmentType,
     selectedRole,
     selectedSkills,
     selectedTasks,
@@ -18,9 +19,12 @@ const AssessmentSummary = () => {
     setStep('proctoring');
   };
 
+  const isSkillMode = assessmentType === 'skill';
+  const maxSkills = isSkillMode ? 1 : 5;
+
   const validationErrors = [];
   if (selectedSkills.length === 0) {
-    validationErrors.push('Select at least 1 skill');
+    validationErrors.push(isSkillMode ? 'Select a skill' : 'Select at least 1 skill');
   } else {
     selectedSkills.forEach(skill => {
       const hasTasks = selectedTasks.some(t => t.skillId === skill.id);
@@ -39,6 +43,25 @@ const AssessmentSummary = () => {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Assessment Type */}
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg gradient-primary">
+            {isSkillMode ? (
+              <Target className="w-4 h-4 text-primary-foreground" />
+            ) : (
+              <Users className="w-4 h-4 text-primary-foreground" />
+            )}
+          </div>
+          <div className="flex-1">
+            <p className="text-xs text-muted-foreground">Assessment Type</p>
+            <p className="font-medium text-foreground">
+              {isSkillMode ? 'Skill Assessment' : 'Persona Assessment'}
+            </p>
+          </div>
+        </div>
+
+        <Separator />
+
         {/* Role */}
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-muted">
@@ -60,9 +83,11 @@ const AssessmentSummary = () => {
             <BookOpen className="w-4 h-4 text-muted-foreground" />
           </div>
           <div className="flex-1">
-            <p className="text-xs text-muted-foreground">Skills Selected</p>
+            <p className="text-xs text-muted-foreground">
+              {isSkillMode ? 'Skill Selected' : 'Skills Selected'}
+            </p>
             <p className="font-medium text-foreground">
-              {selectedSkills.length} / 5
+              {selectedSkills.length} / {maxSkills}
             </p>
           </div>
         </div>

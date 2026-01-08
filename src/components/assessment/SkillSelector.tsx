@@ -6,19 +6,23 @@ import { Badge } from '@/components/ui/badge';
 import { Star, BookOpen } from 'lucide-react';
 
 const SkillSelector = () => {
-  const { selectedRole, selectedSkills, toggleSkill } = useAssessment();
+  const { selectedRole, selectedSkills, toggleSkill, assessmentType } = useAssessment();
 
   if (!selectedRole) return null;
+
+  const isSkillMode = assessmentType === 'skill';
+  const maxSkills = isSkillMode ? 1 : 5;
 
   const importantSkills = selectedRole.skills.filter(s => s.isImportant);
   const optionalSkills = selectedRole.skills.filter(s => !s.isImportant);
 
   const isSelected = (skill: Skill) => selectedSkills.some(s => s.id === skill.id);
-  const canSelectMore = selectedSkills.length < 5;
+  const canSelectMore = selectedSkills.length < maxSkills;
 
   const SkillCard = ({ skill, isImportant }: { skill: Skill; isImportant: boolean }) => {
     const selected = isSelected(skill);
-    const disabled = !selected && !canSelectMore;
+    // In skill mode, always allow clicking (will replace)
+    const disabled = !isSkillMode && !selected && !canSelectMore;
 
     return (
       <Card
@@ -70,12 +74,20 @@ const SkillSelector = () => {
           <div className="flex items-center justify-center w-8 h-8 rounded-full gradient-primary text-primary-foreground text-sm font-semibold">
             2
           </div>
-          <h2 className="text-lg font-semibold text-foreground">Select Skills</h2>
+          <h2 className="text-lg font-semibold text-foreground">
+            {isSkillMode ? 'Select Skill' : 'Select Skills'}
+          </h2>
         </div>
-        <Badge variant={selectedSkills.length === 5 ? 'default' : 'outline'} className="text-sm">
-          Selected: {selectedSkills.length}/5
+        <Badge variant={selectedSkills.length === maxSkills ? 'default' : 'outline'} className="text-sm">
+          Selected: {selectedSkills.length}/{maxSkills}
         </Badge>
       </div>
+
+      {isSkillMode && (
+        <p className="text-sm text-muted-foreground">
+          Select one skill to assess in depth
+        </p>
+      )}
 
       {importantSkills.length > 0 && (
         <div className="space-y-3">
@@ -105,7 +117,7 @@ const SkillSelector = () => {
         </div>
       )}
 
-      {!canSelectMore && (
+      {!isSkillMode && !canSelectMore && (
         <p className="text-sm text-muted-foreground text-center py-2">
           Maximum 5 skills selected. Deselect one to choose another.
         </p>
