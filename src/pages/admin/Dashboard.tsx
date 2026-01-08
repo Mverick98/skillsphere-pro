@@ -23,19 +23,29 @@ interface DashboardStats {
   }>;
 }
 
+interface Template {
+  id: string;
+  name: string;
+}
+
 export const AdminDashboard = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [templates, setTemplates] = useState<Template[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [inviteOpen, setInviteOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const loadStats = async () => {
-      const data = await api.admin.getDashboardStats();
-      setStats(data);
+    const loadData = async () => {
+      const [statsData, templatesData] = await Promise.all([
+        api.admin.getDashboardStats(),
+        api.admin.getTemplates()
+      ]);
+      setStats(statsData);
+      setTemplates(templatesData.map((t: { id: string; name: string }) => ({ id: t.id, name: t.name })));
       setIsLoading(false);
     };
-    loadStats();
+    loadData();
   }, []);
 
   const getStatusBadge = (status: string) => {
@@ -157,8 +167,7 @@ export const AdminDashboard = () => {
       <InviteModal
         open={inviteOpen}
         onOpenChange={setInviteOpen}
-        templateId="t1"
-        templateName="Backend Developer Assessment"
+        templates={templates}
       />
     </div>
   );

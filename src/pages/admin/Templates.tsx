@@ -182,8 +182,8 @@ export const AdminTemplates = () => {
         <InviteModal
           open={!!inviteTemplate}
           onOpenChange={() => setInviteTemplate(null)}
-          templateId={inviteTemplate.id}
-          templateName={inviteTemplate.name}
+          templates={[{ id: inviteTemplate.id, name: inviteTemplate.name }]}
+          preselectedTemplateId={inviteTemplate.id}
         />
       )}
     </div>
