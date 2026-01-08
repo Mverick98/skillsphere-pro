@@ -200,9 +200,15 @@ export const CandidateAssessment = () => {
     // Complete assessment
     await api.assessments.complete(state.assessmentId);
     
-    // Navigate to results
-    navigate(`/results/${state.assessmentId}`);
-  }, [state, navigate]);
+    // Navigate to results with assessment type info
+    const isSkillAssessment = assessmentConfig?.assessmentType === 'skill';
+    navigate(`/results/${state.assessmentId}`, {
+      state: {
+        isSkillAssessment,
+        skillName: isSkillAssessment ? state.questions[0]?.skillName : null,
+      }
+    });
+  }, [state, navigate, assessmentConfig]);
 
   const handleSubmitAndNext = async () => {
     if (!selectedOption || !currentQuestion || !state) return;
