@@ -4,9 +4,25 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Star, BookOpen } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 
 const SkillSelector = () => {
   const { selectedRole, selectedSkills, toggleSkill, assessmentType } = useAssessment();
+  const prevSkillsLengthRef = useRef(selectedSkills.length);
+
+  // Auto-scroll to task selector when a skill is added
+  useEffect(() => {
+    if (selectedSkills.length > prevSkillsLengthRef.current) {
+      // Skill was added, scroll to task selector
+      setTimeout(() => {
+        const taskSelector = document.getElementById('task-selector');
+        if (taskSelector) {
+          taskSelector.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+    }
+    prevSkillsLengthRef.current = selectedSkills.length;
+  }, [selectedSkills.length]);
 
   if (!selectedRole) return null;
 
