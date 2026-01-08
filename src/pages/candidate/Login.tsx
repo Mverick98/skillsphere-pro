@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 
-export const CandidateLogin = () => {
+const CandidateLogin = () => {
   const [activeTab, setActiveTab] = useState('login');
   
   // Login state
