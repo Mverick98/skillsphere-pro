@@ -2,8 +2,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
+import { AssessmentProvider } from "@/context/AssessmentContext";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 
@@ -16,6 +17,17 @@ import AdminCandidates from "./pages/admin/Candidates";
 import AdminReport from "./pages/admin/Report";
 import AdminLayout from "./layouts/AdminLayout";
 
+// Candidate Pages
+import CandidateLogin from "./pages/candidate/Login";
+import CandidateDashboard from "./pages/candidate/Dashboard";
+import CandidateTests from "./pages/candidate/Tests";
+import PreTest from "./pages/candidate/PreTest";
+import SkillAssessment from "./pages/candidate/SkillAssessment";
+import CandidateProctoring from "./pages/candidate/Proctoring";
+import CandidateResults from "./pages/candidate/Results";
+import InviteLanding from "./pages/candidate/InviteLanding";
+import CandidateLayout from "./layouts/CandidateLayout";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -26,12 +38,50 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            {/* Candidate Portal (existing) */}
-            <Route path="/" element={<Index />} />
+            {/* Legacy assessment flow (original demo) */}
+            <Route path="/demo" element={
+              <AssessmentProvider>
+                <Index />
+              </AssessmentProvider>
+            } />
+            
+            {/* Root redirects to candidate login */}
+            <Route path="/" element={<Navigate to="/login" replace />} />
+            
+            {/* Candidate Portal - Public Routes */}
+            <Route path="/login" element={<CandidateLogin />} />
+            <Route path="/register" element={<CandidateLogin />} />
+            <Route path="/invite/:token" element={<InviteLanding />} />
+            
+            {/* Candidate Portal - Protected Routes */}
+            <Route element={<CandidateLayout />}>
+              <Route path="/dashboard" element={<CandidateDashboard />} />
+              <Route path="/tests" element={<CandidateTests />} />
+              <Route path="/tests/:inviteId" element={<PreTest />} />
+              <Route path="/skill-assessment" element={<SkillAssessment />} />
+              <Route path="/results/:assessmentId" element={<CandidateResults />} />
+            </Route>
+            
+            {/* Candidate - Proctoring (full screen) */}
+            <Route path="/assessment/:inviteId/proctoring" element={<CandidateProctoring />} />
+            <Route path="/assessment/skill/proctoring" element={<CandidateProctoring />} />
+            
+            {/* Candidate - Assessment Window (full screen with original flow) */}
+            <Route path="/assessment/:inviteId/start" element={
+              <AssessmentProvider>
+                <Index />
+              </AssessmentProvider>
+            } />
+            <Route path="/assessment/skill/start" element={
+              <AssessmentProvider>
+                <Index />
+              </AssessmentProvider>
+            } />
             
             {/* Admin Portal */}
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<Navigate to="/admin/dashboard" replace />} />
               <Route path="dashboard" element={<AdminDashboard />} />
               <Route path="templates" element={<AdminTemplates />} />
               <Route path="templates/new" element={<TemplateEditor />} />
