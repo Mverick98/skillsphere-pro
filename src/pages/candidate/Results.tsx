@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { ArrowLeft, Download, Check, X, AlertTriangle, ArrowUp, ArrowDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -50,20 +50,23 @@ interface ResultsData {
 
 export const CandidateResults = () => {
   const { assessmentId } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [results, setResults] = useState<ResultsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Get assessment type from navigation state
+  const navigationState = location.state as { isSkillAssessment?: boolean; skillName?: string } | null;
+
   useEffect(() => {
     const loadResults = async () => {
-      // Simulate fetching results - in real app this would use assessmentId
-      // For skill assessments (starting with 'skill-'), show only that skill
-      const isSkillAssessment = assessmentId?.startsWith('skill-');
-      
+      // Check if this is a skill assessment from navigation state
+      const isSkillAssessment = navigationState?.isSkillAssessment ?? false;
+      const skillName = navigationState?.skillName || 'API Design';
       const mockData: ResultsData = {
         assessment_id: assessmentId || 'a1',
-        test_name: isSkillAssessment ? 'API Design Skill Assessment' : 'Backend Developer Assessment',
+        test_name: isSkillAssessment ? `${skillName} Skill Assessment` : 'Backend Developer Assessment',
         role_name: isSkillAssessment ? 'Skill Assessment' : 'Backend Developer',
         overall_score: 78,
         proficiency_level: 4,
@@ -75,8 +78,8 @@ export const CandidateResults = () => {
         integrity_score: 95,
         skill_results: isSkillAssessment ? [
           {
-            skill_id: 'api-design',
-            skill_name: 'API Design',
+            skill_id: 'tested-skill',
+            skill_name: skillName,
             proficiency_level: 4,
             is_strength: true,
             task_results: [
@@ -125,7 +128,7 @@ export const CandidateResults = () => {
       setIsLoading(false);
     };
     loadResults();
-  }, [assessmentId]);
+  }, [assessmentId, navigationState]);
 
   if (isLoading || !results) {
     return (
