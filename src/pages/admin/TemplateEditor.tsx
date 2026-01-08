@@ -122,8 +122,7 @@ export const TemplateEditor = () => {
       if (isDeselecting) {
         toast({ 
           title: 'Task deselected', 
-          description: 'Deselecting tasks may affect proficiency accuracy',
-          variant: 'destructive'
+          description: 'Deselecting tasks reduces skill coverage',
         });
         return prev.filter(id => id !== taskId);
       }
@@ -141,8 +140,7 @@ export const TemplateEditor = () => {
   const deselectAllTasks = (skill: Skill) => {
     toast({ 
       title: 'Tasks deselected', 
-      description: 'Deselecting tasks may affect proficiency accuracy',
-      variant: 'destructive'
+      description: 'Deselecting tasks reduces skill coverage',
     });
     setSelectedTaskIds(prev => prev.filter(id => !skill.tasks.some(t => t.id === id)));
   };
