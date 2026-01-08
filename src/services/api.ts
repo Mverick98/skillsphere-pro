@@ -178,10 +178,15 @@ export const api = {
     getDashboard: async () => {
       await mockDelay();
       return {
-        pending_tests_count: 2,
+        pending_tests_count: 1,
         recent_results: [
           { assessment_id: 'a1', test_name: 'Cloud Architect Assessment', date: '2024-12-28', score: 85 },
           { assessment_id: 'a2', test_name: 'API Design Skill Test', date: '2024-12-20', score: 72 },
+        ],
+        skill_profile: [
+          { skill_id: 'api-design', skill_name: 'API Design', proficiency_level: 4, tested_at: '2024-12-28' },
+          { skill_id: 'cloud-design', skill_name: 'Cloud Architecture', proficiency_level: 4, tested_at: '2024-12-28' },
+          { skill_id: 'database', skill_name: 'Database Management', proficiency_level: 3, tested_at: '2024-12-20' },
         ]
       };
     },
