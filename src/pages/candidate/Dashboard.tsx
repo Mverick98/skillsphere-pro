@@ -1,12 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ClipboardList, Target, Eye } from 'lucide-react';
+import { ClipboardList, Target, Eye, User } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/services/api';
+
+interface SkillProfile {
+  skill_id: string;
+  skill_name: string;
+  proficiency_level: number;
+  tested_at: string;
+}
 
 interface DashboardData {
   pending_tests_count: number;
@@ -16,6 +24,7 @@ interface DashboardData {
     date: string;
     score: number;
   }>;
+  skill_profile: SkillProfile[];
 }
 
 export const CandidateDashboard = () => {
@@ -93,6 +102,35 @@ export const CandidateDashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Skill Profile */}
+      {data && data.skill_profile && data.skill_profile.length > 0 && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <User className="h-5 w-5 text-primary" />
+              <CardTitle>Your Skill Profile</CardTitle>
+            </div>
+            <p className="text-sm text-muted-foreground">Skills you've been tested on</p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {data.skill_profile.map((skill) => (
+                <div key={skill.skill_id} className="p-4 border rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium">{skill.skill_name}</span>
+                    <Badge variant="outline">{skill.proficiency_level}/5</Badge>
+                  </div>
+                  <Progress value={(skill.proficiency_level / 5) * 100} className="h-2 mb-2" />
+                  <p className="text-xs text-muted-foreground">
+                    Tested: {new Date(skill.tested_at).toLocaleDateString()}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Recent Results */}
       {data && data.recent_results.length > 0 && (

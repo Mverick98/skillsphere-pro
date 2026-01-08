@@ -11,63 +11,129 @@ import { useToast } from '@/hooks/use-toast';
 import ProficiencyGauge from '@/components/assessment/ProficiencyGauge';
 import { cn } from '@/lib/utils';
 
-// Mock results data
-const mockResults = {
-  assessment_id: 'a1',
-  test_name: 'Backend Developer Assessment',
-  role_name: 'Backend Developer',
-  overall_score: 78,
-  proficiency_level: 4,
-  percentile: 72,
-  time_taken_minutes: 18,
-  questions_answered: 12,
-  total_questions: 12,
-  accuracy: 83,
-  integrity_score: 95,
-  skill_results: [
-    {
-      skill_id: 'api-design',
-      skill_name: 'API Design',
-      proficiency_level: 4,
-      is_strength: true,
-      task_results: [
-        { task_id: 't1', task_name: 'REST Endpoint Design', correct: true, time_taken: 12, status: 'proficient' },
-        { task_id: 't2', task_name: 'API Versioning Strategies', correct: true, time_taken: 18, status: 'proficient' },
-        { task_id: 't3', task_name: 'GraphQL Schema Design', correct: true, time_taken: 25, status: 'needs-practice' },
-        { task_id: 't4', task_name: 'API Security Implementation', correct: false, time_taken: 40, status: 'not-proficient' },
-      ],
-      strengths: ['Strong REST API design knowledge', 'Good understanding of versioning strategies'],
-      weaknesses: ['Review API security best practices'],
-    },
-    {
-      skill_id: 'database',
-      skill_name: 'Database Management',
-      proficiency_level: 3,
-      is_strength: false,
-      task_results: [
-        { task_id: 't5', task_name: 'Complex SQL Queries', correct: true, time_taken: 20, status: 'needs-practice' },
-        { task_id: 't6', task_name: 'Database Indexing', correct: false, time_taken: 45, status: 'not-proficient' },
-        { task_id: 't7', task_name: 'Data Modeling', correct: true, time_taken: 15, status: 'proficient' },
-      ],
-      strengths: ['Good data modeling skills'],
-      weaknesses: ['Review database indexing strategies', 'Practice complex SQL queries'],
-    },
-  ],
-  recommendations: [
-    'Review API security concepts and OAuth implementations',
-    'Practice database indexing strategies',
-    'Work on complex SQL query optimization',
-  ],
-  tab_switches: 1,
-  face_detection_issues: 0,
-};
+// Results are fetched based on assessment type
+// For single skill assessments, only that skill is shown
+
+interface SkillResult {
+  skill_id: string;
+  skill_name: string;
+  proficiency_level: number;
+  is_strength: boolean;
+  task_results: Array<{
+    task_id: string;
+    task_name: string;
+    correct: boolean;
+    time_taken: number;
+    status: string;
+  }>;
+  strengths: string[];
+  weaknesses: string[];
+}
+
+interface ResultsData {
+  assessment_id: string;
+  test_name: string;
+  role_name: string;
+  overall_score: number;
+  proficiency_level: number;
+  percentile: number;
+  time_taken_minutes: number;
+  questions_answered: number;
+  total_questions: number;
+  accuracy: number;
+  integrity_score: number;
+  skill_results: SkillResult[];
+  recommendations: string[];
+  tab_switches: number;
+  face_detection_issues: number;
+}
 
 export const CandidateResults = () => {
   const { assessmentId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [results, setResults] = useState(mockResults);
-  const [isLoading, setIsLoading] = useState(false);
+  const [results, setResults] = useState<ResultsData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadResults = async () => {
+      // Simulate fetching results - in real app this would use assessmentId
+      // For skill assessments (starting with 'skill-'), show only that skill
+      const isSkillAssessment = assessmentId?.startsWith('skill-');
+      
+      const mockData: ResultsData = {
+        assessment_id: assessmentId || 'a1',
+        test_name: isSkillAssessment ? 'API Design Skill Assessment' : 'Backend Developer Assessment',
+        role_name: isSkillAssessment ? 'Skill Assessment' : 'Backend Developer',
+        overall_score: 78,
+        proficiency_level: 4,
+        percentile: 72,
+        time_taken_minutes: 18,
+        questions_answered: isSkillAssessment ? 4 : 12,
+        total_questions: isSkillAssessment ? 4 : 12,
+        accuracy: 83,
+        integrity_score: 95,
+        skill_results: isSkillAssessment ? [
+          {
+            skill_id: 'api-design',
+            skill_name: 'API Design',
+            proficiency_level: 4,
+            is_strength: true,
+            task_results: [
+              { task_id: 't1', task_name: 'REST Endpoint Design', correct: true, time_taken: 12, status: 'proficient' },
+              { task_id: 't2', task_name: 'API Versioning Strategies', correct: true, time_taken: 18, status: 'proficient' },
+              { task_id: 't3', task_name: 'GraphQL Schema Design', correct: true, time_taken: 25, status: 'needs-practice' },
+              { task_id: 't4', task_name: 'API Security Implementation', correct: false, time_taken: 40, status: 'not-proficient' },
+            ],
+            strengths: ['Strong REST API design knowledge', 'Good understanding of versioning strategies'],
+            weaknesses: ['Review API security best practices'],
+          }
+        ] : [
+          {
+            skill_id: 'api-design',
+            skill_name: 'API Design',
+            proficiency_level: 4,
+            is_strength: true,
+            task_results: [
+              { task_id: 't1', task_name: 'REST Endpoint Design', correct: true, time_taken: 12, status: 'proficient' },
+              { task_id: 't2', task_name: 'API Versioning Strategies', correct: true, time_taken: 18, status: 'proficient' },
+            ],
+            strengths: ['Strong REST API design knowledge', 'Good understanding of versioning strategies'],
+            weaknesses: ['Review API security best practices'],
+          },
+          {
+            skill_id: 'database',
+            skill_name: 'Database Management',
+            proficiency_level: 3,
+            is_strength: false,
+            task_results: [
+              { task_id: 't5', task_name: 'Complex SQL Queries', correct: true, time_taken: 20, status: 'needs-practice' },
+              { task_id: 't6', task_name: 'Database Indexing', correct: false, time_taken: 45, status: 'not-proficient' },
+            ],
+            strengths: ['Good data modeling skills'],
+            weaknesses: ['Review database indexing strategies', 'Practice complex SQL queries'],
+          },
+        ],
+        recommendations: isSkillAssessment 
+          ? ['Review API security concepts and OAuth implementations', 'Practice GraphQL schema design']
+          : ['Review API security concepts', 'Practice database indexing strategies', 'Work on complex SQL query optimization'],
+        tab_switches: 1,
+        face_detection_issues: 0,
+      };
+      
+      setResults(mockData);
+      setIsLoading(false);
+    };
+    loadResults();
+  }, [assessmentId]);
+
+  if (isLoading || !results) {
+    return (
+      <div className="flex items-center justify-center h-[50vh]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
 
   const integrityRisk = results.integrity_score >= 90 ? 'LOW' : results.integrity_score >= 70 ? 'MEDIUM' : 'HIGH';
 
