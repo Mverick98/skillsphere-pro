@@ -38,7 +38,7 @@ const TaskSelector = () => {
   };
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div id="task-selector" className="space-y-4 animate-fade-in scroll-mt-24">
       <div className="flex items-center gap-3">
         <div className="flex items-center justify-center w-8 h-8 rounded-full gradient-primary text-primary-foreground text-sm font-semibold">
           3
