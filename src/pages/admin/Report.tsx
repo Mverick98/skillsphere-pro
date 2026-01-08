@@ -30,7 +30,7 @@ interface ReportData {
   skill_results: Array<{
     skill_id: string;
     skill_name: string;
-    proficiency_level: 1 | 2 | 3 | 4 | 5;
+    proficiency_level: number;
     is_strength: boolean;
     task_results: Array<{
       task_id: string;

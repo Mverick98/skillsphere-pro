@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 
 interface ProficiencyGaugeProps {
-  level: 1 | 2 | 3 | 4 | 5;
+  level: number;
   size?: 'sm' | 'md' | 'lg';
   showLabel?: boolean;
 }
