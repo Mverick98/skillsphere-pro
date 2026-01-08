@@ -211,9 +211,20 @@ export const api = {
 
     startAssignedTest: async (inviteId: string) => {
       await mockDelay();
+      // Generate mock questions for assigned test
+      const questions = [
+        { id: 'q1', text: 'Which HTTP method should be used for creating a new resource?', skillName: 'API Design', taskName: 'REST Endpoints', options: [{ id: 'A', text: 'GET' }, { id: 'B', text: 'POST' }, { id: 'C', text: 'PUT' }, { id: 'D', text: 'DELETE' }] },
+        { id: 'q2', text: 'What is the purpose of API versioning?', skillName: 'API Design', taskName: 'API Versioning', options: [{ id: 'A', text: 'To improve performance' }, { id: 'B', text: 'To allow backward compatibility' }, { id: 'C', text: 'To reduce code size' }, { id: 'D', text: 'To enable caching' }] },
+        { id: 'q3', text: 'Which SQL clause is used to filter grouped results?', skillName: 'Database', taskName: 'SQL Queries', options: [{ id: 'A', text: 'WHERE' }, { id: 'B', text: 'HAVING' }, { id: 'C', text: 'GROUP BY' }, { id: 'D', text: 'ORDER BY' }] },
+        { id: 'q4', text: 'What type of index is best for equality queries?', skillName: 'Database', taskName: 'Indexing', options: [{ id: 'A', text: 'B-tree index' }, { id: 'B', text: 'Hash index' }, { id: 'C', text: 'Full-text index' }, { id: 'D', text: 'Bitmap index' }] },
+        { id: 'q5', text: 'What is the main purpose of mocking in unit tests?', skillName: 'Testing', taskName: 'Unit Testing', options: [{ id: 'A', text: 'To speed up tests' }, { id: 'B', text: 'To isolate the unit under test' }, { id: 'C', text: 'To test the UI' }, { id: 'D', text: 'To test database queries' }] },
+        { id: 'q6', text: 'Which HTTP status code indicates a successful resource creation?', skillName: 'API Design', taskName: 'REST Endpoints', options: [{ id: 'A', text: '200 OK' }, { id: 'B', text: '201 Created' }, { id: 'C', text: '204 No Content' }, { id: 'D', text: '301 Moved Permanently' }] },
+      ];
       return { 
         success: true, 
         assessment_id: 'assess-' + Date.now(),
+        questions,
+        time_limit_minutes: 10,
       };
     },
   },
@@ -263,10 +274,18 @@ export const api = {
       assessment_type: 'skill' | 'persona';
     }) => {
       await mockDelay();
+      // Generate mock questions based on skill assessment
+      const questions = [
+        { id: 'q1', text: 'Which HTTP method should be used for a partial update to a resource?', skillName: 'API Design', taskName: 'REST Endpoints', options: [{ id: 'A', text: 'PUT - Replace entire resource' }, { id: 'B', text: 'PATCH - Partial update' }, { id: 'C', text: 'POST - Create new resource' }, { id: 'D', text: 'DELETE - Remove resource' }] },
+        { id: 'q2', text: 'What is the recommended approach for API versioning?', skillName: 'API Design', taskName: 'API Versioning', options: [{ id: 'A', text: 'Query parameters only' }, { id: 'B', text: 'URL path versioning' }, { id: 'C', text: 'Custom headers only' }, { id: 'D', text: 'No versioning needed' }] },
+        { id: 'q3', text: 'Which authentication method is most secure for APIs?', skillName: 'API Design', taskName: 'API Security', options: [{ id: 'A', text: 'Basic Auth' }, { id: 'B', text: 'API Key in URL' }, { id: 'C', text: 'OAuth 2.0 with JWT' }, { id: 'D', text: 'No authentication' }] },
+        { id: 'q4', text: 'What does HATEOAS stand for in REST APIs?', skillName: 'API Design', taskName: 'REST Endpoints', options: [{ id: 'A', text: 'Hypermedia As The Engine Of Application State' }, { id: 'B', text: 'HTTP Application Transfer Engine Of API State' }, { id: 'C', text: 'Hypertext Application Transfer Engine Of State' }, { id: 'D', text: 'HTTP As The Engine Of Application Services' }] },
+      ];
       return {
         success: true,
         assessment_id: 'assess-' + Date.now(),
-        questions_count: data.task_ids.length,
+        questions,
+        time_limit_minutes: 10,
       };
     },
 

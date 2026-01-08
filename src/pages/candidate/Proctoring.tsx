@@ -54,16 +54,14 @@ export const CandidateProctoring = () => {
   }, [stream]);
 
   const handleStartAssessment = () => {
-    // Navigate to the actual assessment
-    // For now, we'll navigate back to the original assessment flow
+    // Navigate to the actual assessment window
     if (inviteId && inviteId !== 'skill') {
-      // Assigned test - navigate to existing assessment window
-      navigate(`/assessment/${inviteId}/start`);
+      // Assigned test
+      navigate(`/assessment/${inviteId}`, { state: { proctoring: true } });
     } else if (assessmentConfig) {
-      // Skill assessment - would start the skill-based assessment
-      navigate('/assessment/skill/start', { state: assessmentConfig });
+      // Skill assessment
+      navigate('/assessment/skill', { state: { ...assessmentConfig, proctoring: true } });
     } else {
-      // Fallback - go to dashboard
       navigate('/dashboard');
     }
   };

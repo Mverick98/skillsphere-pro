@@ -26,6 +26,7 @@ import SkillAssessment from "./pages/candidate/SkillAssessment";
 import CandidateProctoring from "./pages/candidate/Proctoring";
 import CandidateResults from "./pages/candidate/Results";
 import InviteLanding from "./pages/candidate/InviteLanding";
+import CandidateAssessment from "./pages/candidate/Assessment";
 import CandidateLayout from "./layouts/CandidateLayout";
 
 const queryClient = new QueryClient();
@@ -66,17 +67,9 @@ const App = () => (
             <Route path="/assessment/:inviteId/proctoring" element={<CandidateProctoring />} />
             <Route path="/assessment/skill/proctoring" element={<CandidateProctoring />} />
             
-            {/* Candidate - Assessment Window (full screen with original flow) */}
-            <Route path="/assessment/:inviteId/start" element={
-              <AssessmentProvider>
-                <Index />
-              </AssessmentProvider>
-            } />
-            <Route path="/assessment/skill/start" element={
-              <AssessmentProvider>
-                <Index />
-              </AssessmentProvider>
-            } />
+            {/* Candidate - Assessment Window (full screen) */}
+            <Route path="/assessment/:inviteId" element={<CandidateAssessment />} />
+            <Route path="/assessment/skill" element={<CandidateAssessment />} />
             
             {/* Admin Portal */}
             <Route path="/admin/login" element={<AdminLogin />} />
