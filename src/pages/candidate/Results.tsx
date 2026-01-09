@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Download, Check, X, AlertTriangle, ArrowUp, ArrowDown } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Download, Check, X, AlertTriangle, ArrowUp, ArrowDown, CheckCircle, Target, BookOpen, Trophy, Star, Monitor, Maximize2, Users, User, Code, Copy, Clock, Flag, AlertCircle, Brain, TrendingUp, ChevronRight } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -10,136 +10,219 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { useToast } from '@/hooks/use-toast';
 import ProficiencyGauge from '@/components/assessment/ProficiencyGauge';
 import { cn } from '@/lib/utils';
-
-// Results are fetched based on assessment type
-// For single skill assessments, only that skill is shown
+import { api } from '@/services/api';
 
 interface SkillResult {
   skill_id: string;
   skill_name: string;
   proficiency_level: number;
+  score: number;
   is_strength: boolean;
-  task_results: Array<{
+  tasks: Array<{
     task_id: string;
     task_name: string;
     correct: boolean;
-    time_taken: number;
+    time_taken_seconds: number;
     status: string;
   }>;
   strengths: string[];
   weaknesses: string[];
 }
 
+interface FlaggedActivity {
+  type: string;
+  icon: string;
+  label: string;
+  count: number;
+  flag_level: string;
+  timestamps?: string[] | null;
+}
+
+interface LLMSkillReport {
+  metadata: {
+    candidate_name?: string;
+    skill_name?: string;
+    assessment_date?: string;
+    skill_score?: number;
+    pass_fail?: 'PASS' | 'FAIL';
+    confidence_score?: number;
+    confidence_label?: string;
+  };
+  proficiency_summary?: {
+    skill_profile?: string;
+    mastery_level?: string;
+    core_insight?: string;
+    practical_implication?: string;
+  };
+  task_performance?: Array<{
+    task_name: string;
+    task_score: number;
+    ceiling_score: number;
+    accuracy_score?: number;
+    highest_level?: string;
+    confidence_label?: string;
+    status: string;
+    can_do?: string;
+    cannot_do?: string | null;
+  }>;
+  blooms_breakdown?: {
+    highest_level_achieved?: string;
+    levels_demonstrated?: string[];
+    level_breakdown?: Record<string, string>;
+    interpretation?: string;
+  };
+  knowledge_gaps?: Array<{
+    gap: string;
+    severity: string;
+    error_count?: number;
+    what_went_wrong?: string;
+    why_this_pattern?: string;
+  }>;
+  recommendations?: {
+    focus_areas?: string[];
+    next_steps?: string[];
+    target_bloom_level?: string;
+  };
+}
+
 interface ResultsData {
   assessment_id: string;
-  test_name: string;
   role_name: string;
-  overall_score: number;
-  proficiency_level: number;
-  percentile: number;
-  time_taken_minutes: number;
-  questions_answered: number;
-  total_questions: number;
-  accuracy: number;
-  integrity_score: number;
-  skill_results: SkillResult[];
+  skill_name?: string;
+  candidate_name?: string;
+  assessment_type?: string;
+  overall: {
+    proficiency_level: number;
+    score: number;
+    accuracy_percentage: number;
+    total_time_seconds: number;
+    percentile: number | null;
+  };
+  skills: SkillResult[];
   recommendations: string[];
-  tab_switches: number;
-  face_detection_issues: number;
+  integrity?: {
+    cheating_risk: string;
+    integrity_score: number;
+    flags: Array<{ question_id: string; severity: string; reason: string }>;
+    recommendation: string;
+  };
+  report?: LLMSkillReport | Record<string, unknown>;
+  report_ready?: boolean;
+  flagged_activities?: FlaggedActivity[] | null;
 }
 
 export const CandidateResults = () => {
   const { assessmentId } = useParams();
+  const navigate = useNavigate();
   const location = useLocation();
+  const { toast } = useToast();
+  const [countdown, setCountdown] = useState(5);
+
+  // Get assessment type from navigation state
+  const locationState = location.state as { isSkillAssessment?: boolean; skillName?: string } | null;
+  const isSkillAssessment = locationState?.isSkillAssessment ?? false;
+  const skillName = locationState?.skillName;
+
+  // Auto-redirect countdown
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          navigate('/dashboard');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [navigate]);
+
+  // Show congratulations and redirect
+  return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <Card className="max-w-md w-full">
+        <CardContent className="text-center py-12">
+          <div className="w-20 h-20 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-6">
+            <CheckCircle className="h-10 w-10 text-success" />
+          </div>
+          <h1 className="text-2xl font-bold mb-3">
+            {isSkillAssessment ? 'Assessment Complete!' : 'Assessment Submitted'}
+          </h1>
+          <p className="text-muted-foreground mb-2">
+            {isSkillAssessment
+              ? `Great job completing the ${skillName || 'skill'} assessment!`
+              : 'Your assessment has been submitted successfully.'}
+          </p>
+          <p className="text-muted-foreground mb-6">
+            {isSkillAssessment
+              ? "We're generating your detailed proficiency report. You'll be notified when it's ready to view on your dashboard."
+              : 'Your hiring manager will review your results and get back to you.'}
+          </p>
+          <Button onClick={() => navigate('/dashboard')} className="w-full">
+            Go to Dashboard ({countdown}s)
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+// Component for viewing detailed results (accessed from dashboard)
+export const CandidateResultsDetail = () => {
+  const { assessmentId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [results, setResults] = useState<ResultsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  // Get assessment type from navigation state
-  const navigationState = location.state as { isSkillAssessment?: boolean; skillName?: string } | null;
+  const [isPollingReport, setIsPollingReport] = useState(false);
 
   useEffect(() => {
     const loadResults = async () => {
-      // Check if this is a skill assessment from navigation state
-      const isSkillAssessment = navigationState?.isSkillAssessment ?? false;
-      const skillName = navigationState?.skillName || 'API Design';
-      const mockData: ResultsData = {
-        assessment_id: assessmentId || 'a1',
-        test_name: isSkillAssessment ? `${skillName} Skill Assessment` : 'Backend Developer Assessment',
-        role_name: isSkillAssessment ? 'Skill Assessment' : 'Backend Developer',
-        overall_score: 78,
-        proficiency_level: 4,
-        percentile: 72,
-        time_taken_minutes: 18,
-        questions_answered: isSkillAssessment ? 4 : 12,
-        total_questions: isSkillAssessment ? 4 : 12,
-        accuracy: 83,
-        integrity_score: 95,
-        skill_results: isSkillAssessment ? [
-          {
-            skill_id: 'tested-skill',
-            skill_name: skillName,
-            proficiency_level: 4,
-            is_strength: true,
-            task_results: [
-              { task_id: 't1', task_name: 'REST Endpoint Design', correct: true, time_taken: 12, status: 'proficient' },
-              { task_id: 't2', task_name: 'API Versioning Strategies', correct: true, time_taken: 18, status: 'proficient' },
-              { task_id: 't3', task_name: 'GraphQL Schema Design', correct: true, time_taken: 25, status: 'needs-practice' },
-              { task_id: 't4', task_name: 'API Security Implementation', correct: false, time_taken: 40, status: 'not-proficient' },
-            ],
-            strengths: ['Strong REST API design knowledge', 'Good understanding of versioning strategies'],
-            weaknesses: ['Review API security best practices'],
-          }
-        ] : [
-          {
-            skill_id: 'api-design',
-            skill_name: 'API Design',
-            proficiency_level: 4,
-            is_strength: true,
-            task_results: [
-              { task_id: 't1', task_name: 'REST Endpoint Design', correct: true, time_taken: 12, status: 'proficient' },
-              { task_id: 't2', task_name: 'API Versioning Strategies', correct: true, time_taken: 18, status: 'proficient' },
-            ],
-            strengths: ['Strong REST API design knowledge', 'Good understanding of versioning strategies'],
-            weaknesses: ['Review API security best practices'],
-          },
-          {
-            skill_id: 'database',
-            skill_name: 'Database Management',
-            proficiency_level: 3,
-            is_strength: false,
-            task_results: [
-              { task_id: 't5', task_name: 'Complex SQL Queries', correct: true, time_taken: 20, status: 'needs-practice' },
-              { task_id: 't6', task_name: 'Database Indexing', correct: false, time_taken: 45, status: 'not-proficient' },
-            ],
-            strengths: ['Good data modeling skills'],
-            weaknesses: ['Review database indexing strategies', 'Practice complex SQL queries'],
-          },
-        ],
-        recommendations: isSkillAssessment 
-          ? ['Review API security concepts and OAuth implementations', 'Practice GraphQL schema design']
-          : ['Review API security concepts', 'Practice database indexing strategies', 'Work on complex SQL query optimization'],
-        tab_switches: 1,
-        face_detection_issues: 0,
-      };
-      
-      setResults(mockData);
+      if (!assessmentId) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const data = await api.assessments.getResults(assessmentId);
+        setResults(data);
+
+        // If report is not ready, start polling
+        if (data.report_ready === false) {
+          setIsPollingReport(true);
+        }
+      } catch (error) {
+        console.error('Failed to load results:', error);
+        toast({ title: 'Error', description: 'Failed to load assessment results', variant: 'destructive' });
+      }
       setIsLoading(false);
     };
     loadResults();
-  }, [assessmentId, navigationState]);
+  }, [assessmentId, toast]);
 
-  if (isLoading || !results) {
-    return (
-      <div className="flex items-center justify-center h-[50vh]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
-    );
-  }
+  // Poll for report when it's not ready
+  useEffect(() => {
+    if (!isPollingReport || !assessmentId) return;
 
-  const integrityRisk = results.integrity_score >= 90 ? 'LOW' : results.integrity_score >= 70 ? 'MEDIUM' : 'HIGH';
+    const pollInterval = setInterval(async () => {
+      try {
+        const data = await api.assessments.getResults(assessmentId);
+        setResults(data);
 
+        if (data.report_ready === true) {
+          setIsPollingReport(false);
+          toast({ title: 'Report Ready', description: 'Your detailed proficiency report is now available!' });
+        }
+      } catch (error) {
+        console.error('Polling failed:', error);
+      }
+    }, 5000); // Poll every 5 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [isPollingReport, assessmentId, toast]);
+
+  // Loading state
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-[50vh]">
@@ -148,221 +231,302 @@ export const CandidateResults = () => {
     );
   }
 
+  if (!results) {
+    return (
+      <div className="flex items-center justify-center h-[50vh]">
+        <p className="text-muted-foreground">No results available</p>
+      </div>
+    );
+  }
+
+  const isSkillAssessment = results.assessment_type === 'skill';
+
+  // Check if we have an LLM-generated skill report (NEW FORMAT)
+  const llmReport = results.report as LLMSkillReport | undefined;
+  const hasLLMReport = results.report_ready === true && llmReport && llmReport.metadata && llmReport.proficiency_summary;
+  const isReportPending = results.report_ready === false;
+
+  // Helper function for flagged activity icons
+  const getActivityIcon = (iconType: string) => {
+    const iconProps = { className: "h-4 w-4" };
+    switch (iconType) {
+      case 'browser': return <Monitor {...iconProps} />;
+      case 'fullscreen': return <Maximize2 {...iconProps} />;
+      case 'users': return <Users {...iconProps} />;
+      case 'user': return <User {...iconProps} />;
+      case 'code': return <Code {...iconProps} />;
+      case 'copy': return <Copy {...iconProps} />;
+      case 'clock': return <Clock {...iconProps} />;
+      default: return <AlertCircle {...iconProps} />;
+    }
+  };
+
+  // Use LLM report data if available, fallback to basic data
+  const proficiencyLevel = results.overall.proficiency_level;
+
+  const scoreDisplay = hasLLMReport && llmReport.metadata.skill_score !== undefined
+    ? `${llmReport.metadata.skill_score.toFixed(0)}%`
+    : `${results.overall.score}%`;
+
+  const skillName = hasLLMReport && llmReport.metadata.skill_name
+    ? llmReport.metadata.skill_name
+    : results.skill_name || results.role_name;
+
+  const passFail = hasLLMReport ? llmReport.metadata.pass_fail : undefined;
+
+  const handleDownload = () => {
+    // Use browser's print dialog which allows saving as PDF
+    // This maintains the exact same styling as the screen
+    toast({ title: 'Preparing PDF...', description: 'Print dialog will open - select "Save as PDF"' });
+
+    // Small delay to show toast before print dialog
+    setTimeout(() => {
+      window.print();
+    }, 500);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Assessment Complete</h1>
-          <p className="text-muted-foreground">{results.role_name}</p>
+          <p className="text-muted-foreground">{skillName}</p>
         </div>
-        <Button variant="outline" onClick={() => toast({ title: 'Downloading...', description: 'Your report will download shortly' })}>
+        <Button variant="outline" onClick={handleDownload} disabled={isReportPending}>
           <Download className="h-4 w-4 mr-2" />
-          Download Report
+          {isReportPending ? 'Report Generating...' : 'Download Report'}
         </Button>
       </div>
 
-      {/* Overall Summary */}
+      {/* Overall Summary with LLM Report - Compact Layout */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-center">Your Proficiency Report</CardTitle>
-          <p className="text-center text-muted-foreground">{results.test_name}</p>
-        </CardHeader>
-        <CardContent className="py-8">
-          <div className="flex flex-col md:flex-row items-center gap-8">
-            <ProficiencyGauge level={results.proficiency_level} size="lg" />
-            <div className="flex-1 text-center md:text-left">
-              <p className="text-muted-foreground mb-4">
-                You scored better than <span className="text-primary font-semibold">{results.percentile}%</span> of candidates
-              </p>
-              <div className="flex flex-wrap justify-center md:justify-start gap-6">
-                <div className="text-center">
-                  <div className="text-2xl font-bold">{results.time_taken_minutes}m</div>
-                  <div className="text-sm text-muted-foreground">Time</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold">{results.questions_answered}/{results.total_questions}</div>
-                  <div className="text-sm text-muted-foreground">Answered</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold">{results.accuracy}%</div>
-                  <div className="text-sm text-muted-foreground">Accuracy</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold">{results.integrity_score}%</div>
-                  <div className="text-sm text-muted-foreground">Integrity</div>
-                </div>
+        <CardContent className="py-4">
+          <div className="flex items-center gap-6">
+            {/* Left: Gauge - compact size */}
+            <div className="flex-shrink-0">
+              <ProficiencyGauge level={proficiencyLevel} size="sm" />
+            </div>
+
+            {/* Stats - inline with gauge */}
+            <div className="flex items-center gap-6">
+              <div className="text-center">
+                <div className="text-xl font-bold">{Math.round(results.overall.total_time_seconds / 60)}m</div>
+                <div className="text-xs text-muted-foreground">Time</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xl font-bold">{scoreDisplay}</div>
+                <div className="text-xs text-muted-foreground">Score</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xl font-bold">{results.overall.accuracy_percentage}%</div>
+                <div className="text-xs text-muted-foreground">Accuracy</div>
               </div>
             </div>
+
+            {/* Spacer */}
+            <div className="flex-1" />
+
+            {/* Right: Pass/Fail Badge */}
+            {hasLLMReport && passFail && (
+              <Badge className={cn(
+                "text-base font-semibold px-3 py-1.5",
+                passFail === 'PASS' ? 'bg-green-500/10 text-green-600' : 'bg-red-500/10 text-red-600'
+              )}>
+                {passFail === 'PASS' ? <CheckCircle className="h-4 w-4 mr-1.5 inline" /> : <X className="h-4 w-4 mr-1.5 inline" />}
+                {passFail}
+              </Badge>
+            )}
           </div>
         </CardContent>
       </Card>
 
-      {/* Skill Breakdown */}
-      <div>
-        <h3 className="text-lg font-semibold mb-4">Skill Breakdown</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {results.skill_results.map(skill => (
-            <Card key={skill.skill_id}>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium">{skill.skill_name}</span>
-                  {skill.is_strength ? (
-                    <Badge className="bg-success/10 text-success">
-                      <ArrowUp className="h-3 w-3 mr-1" />
-                      Strength
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-warning">
-                      <ArrowDown className="h-3 w-3 mr-1" />
-                      Needs Work
-                    </Badge>
-                  )}
-                </div>
-                <div className="flex items-center gap-3">
-                  <Progress value={(skill.proficiency_level / 5) * 100} className="flex-1" />
-                  <span className="text-sm font-medium">{skill.proficiency_level}/5</span>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
+      {/* Report Generating Status */}
+      {isReportPending && (
+        <Card className="border-dashed border-2 border-primary/30 bg-primary/5">
+          <CardContent className="py-6">
+            <div className="flex items-center gap-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+              <div>
+                <h3 className="font-semibold">Generating Detailed Report...</h3>
+                <p className="text-sm text-muted-foreground">
+                  Our AI is analyzing your performance to provide personalized insights.
+                  This usually takes 15-30 seconds. The page will update automatically when ready.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Detailed Analysis */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Detailed Skill Analysis</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Accordion type="multiple" defaultValue={results.skill_results.map(s => s.skill_id)}>
-            {results.skill_results.map(skill => (
-              <AccordionItem key={skill.skill_id} value={skill.skill_id}>
-                <AccordionTrigger className="hover:no-underline">
-                  <div className="flex items-center gap-3">
-                    <span className="font-medium">{skill.skill_name}</span>
-                    <Badge variant="secondary">Level {skill.proficiency_level}</Badge>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <div className="space-y-4 pt-2">
-                    {/* Task Performance Table */}
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Task Name</TableHead>
-                          <TableHead>Result</TableHead>
-                          <TableHead>Time</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {skill.task_results.map(task => (
-                          <TableRow 
-                            key={task.task_id}
-                            className={cn(
-                              task.status === 'proficient' && 'bg-success/5',
-                              task.status === 'needs-practice' && 'bg-warning/5',
-                              task.status === 'not-proficient' && 'bg-destructive/5'
-                            )}
-                          >
-                            <TableCell>{task.task_name}</TableCell>
-                            <TableCell>
-                              {task.correct ? (
-                                <Check className="h-4 w-4 text-success" />
-                              ) : (
-                                <X className="h-4 w-4 text-destructive" />
-                              )}
-                            </TableCell>
-                            <TableCell>{task.time_taken}s</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-
-                    {/* Strengths & Weaknesses */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <h4 className="font-medium mb-2 text-success">Strengths</h4>
-                        <ul className="space-y-1">
-                          {skill.strengths.map((s, i) => (
-                            <li key={i} className="flex items-center gap-2 text-sm">
-                              <Check className="h-4 w-4 text-success flex-shrink-0" />
-                              {s}
-                            </li>
-                          ))}
-                        </ul>
+      {/* LLM Report: Task Performance */}
+      {hasLLMReport && llmReport.task_performance && llmReport.task_performance.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5" />
+              Task Performance
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Accordion type="multiple" className="space-y-2">
+              {llmReport.task_performance.map((task, i) => (
+                <AccordionItem key={i} value={`task-${i}`} className="border rounded-lg overflow-hidden">
+                  <AccordionTrigger className="hover:no-underline px-4 py-3 bg-muted/30">
+                    <div className="flex items-center justify-between w-full pr-4">
+                      <div className="flex items-center gap-3">
+                        <span className="font-semibold">{task.task_name}</span>
                       </div>
-                      <div>
-                        <h4 className="font-medium mb-2 text-warning">Areas to Improve</h4>
-                        <ul className="space-y-1">
-                          {skill.weaknesses.map((w, i) => (
-                            <li key={i} className="flex items-center gap-2 text-sm">
-                              <AlertTriangle className="h-4 w-4 text-warning flex-shrink-0" />
-                              {w}
-                            </li>
-                          ))}
-                        </ul>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-bold">{task.task_score?.toFixed(0)}%</span>
+                        <Badge variant={task.status === 'proficient' ? 'default' : task.status === 'needs_practice' ? 'secondary' : 'outline'}>
+                          {task.status?.replace('_', ' ')}
+                        </Badge>
                       </div>
                     </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 py-3 bg-background">
+                    {task.can_do && (
+                      <div className="mb-2">
+                        <span className="text-xs font-medium text-green-600">Can Do:</span>
+                        <p className="text-sm">{task.can_do}</p>
+                      </div>
+                    )}
+                    {task.cannot_do && (
+                      <div>
+                        <span className="text-xs font-medium text-amber-600">Developing:</span>
+                        <p className="text-sm">{task.cannot_do}</p>
+                      </div>
+                    )}
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Knowledge Gaps / Areas for Development removed - covered by Recommendations */}
+
+      {/* Skill Breakdown and Detailed Skill Analysis removed - Task Performance covers this */}
+
+      {/* LLM Recommendations - Moved above Flagged Activities */}
+      {hasLLMReport && llmReport.recommendations && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5" />
+              Recommendations
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Focus Areas */}
+              {llmReport.recommendations.focus_areas && llmReport.recommendations.focus_areas.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-3">Focus Areas</h4>
+                  <ul className="space-y-2">
+                    {llmReport.recommendations.focus_areas.map((focus, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm">
+                        <Target className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                        {focus}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Next Steps */}
+              {llmReport.recommendations.next_steps && llmReport.recommendations.next_steps.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-3">Next Steps</h4>
+                  <ul className="space-y-2">
+                    {llmReport.recommendations.next_steps.map((step, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm">
+                        <ChevronRight className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                        {step}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Target Level */}
+              {llmReport.recommendations.target_bloom_level && (
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-3">Target Level</h4>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">Work towards:</span>
+                    <Badge variant="outline" className="capitalize">
+                      {llmReport.recommendations.target_bloom_level}
+                    </Badge>
                   </div>
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        </CardContent>
-      </Card>
-
-      {/* Integrity Assessment */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Integrity Assessment</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4">
-              <div className="text-3xl font-bold">{results.integrity_score}%</div>
-              <Badge 
-                className={cn(
-                  integrityRisk === 'LOW' && 'bg-success/10 text-success',
-                  integrityRisk === 'MEDIUM' && 'bg-warning/10 text-warning',
-                  integrityRisk === 'HIGH' && 'bg-destructive/10 text-destructive'
-                )}
-              >
-                {integrityRisk} RISK
-              </Badge>
-            </div>
-          </div>
-          {results.tab_switches === 0 && results.face_detection_issues === 0 ? (
-            <p className="text-sm text-success flex items-center gap-2">
-              <Check className="h-4 w-4" />
-              No significant issues detected
-            </p>
-          ) : (
-            <div className="space-y-2 text-sm">
-              {results.tab_switches > 0 && (
-                <p className="text-warning">• {results.tab_switches} tab switch(es) detected</p>
-              )}
-              {results.face_detection_issues > 0 && (
-                <p className="text-warning">• {results.face_detection_issues} face detection issue(s)</p>
+                </div>
               )}
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Recommendations */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recommended Learning Path</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ol className="list-decimal list-inside space-y-2">
-            {results.recommendations.map((rec, i) => (
-              <li key={i} className="text-muted-foreground">{rec}</li>
-            ))}
-          </ol>
-        </CardContent>
-      </Card>
+      {/* Basic Recommendations (fallback) */}
+      {!hasLLMReport && results.recommendations.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Recommended Learning Path</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ol className="list-decimal list-inside space-y-2">
+              {results.recommendations.map((rec, i) => (
+                <li key={i} className="text-muted-foreground">{rec}</li>
+              ))}
+            </ol>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Flagged Activities - Only show if there are flags */}
+      {results.flagged_activities && results.flagged_activities.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Flag className="h-5 w-5 text-amber-500" />
+              Flagged Activities
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {results.flagged_activities.map((activity, i) => (
+                <div key={i} className="flex items-start justify-between text-sm py-2 border-b border-muted last:border-0">
+                  <div className="flex items-center gap-3">
+                    <span className="text-muted-foreground">
+                      {getActivityIcon(activity.icon)}
+                    </span>
+                    <span>{activity.label}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {activity.flag_level === "flag" ? (
+                      <span className="text-red-500 font-medium">🚩 {activity.count}</span>
+                    ) : (
+                      <span className="text-amber-500">🏳</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {/* Timestamps section */}
+              {results.flagged_activities.filter(a => a.timestamps && a.timestamps.length > 0).length > 0 && (
+                <div className="mt-3 pt-3 border-t text-xs text-muted-foreground">
+                  {results.flagged_activities.filter(a => a.timestamps && a.timestamps.length > 0).map((activity, i) => (
+                    <div key={`ts-${i}`}>
+                      <span className="font-medium">{activity.label}:</span>{' '}
+                      {activity.timestamps?.join(' | ')}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Actions */}
       <div className="flex justify-center gap-4">
@@ -373,5 +537,17 @@ export const CandidateResults = () => {
     </div>
   );
 };
+
+// Helper to convert proficiency level string to number
+function getProficiencyLevelNumber(level: string): number {
+  const levels: Record<string, number> = {
+    'Expert': 5,
+    'Advanced': 4,
+    'Intermediate': 3,
+    'Developing': 2,
+    'Beginner': 1
+  };
+  return levels[level] || 3;
+}
 
 export default CandidateResults;

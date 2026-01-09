@@ -31,18 +31,21 @@ export const CandidateProctoring = () => {
       const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
       setStream(mediaStream);
       setCameraEnabled(true);
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-      }
     } catch {
-      toast({ 
-        title: 'Camera access denied', 
+      toast({
+        title: 'Camera access denied',
         description: 'Please allow camera access to continue with the assessment',
         variant: 'destructive'
       });
     }
   };
+
+  // Set video source when stream is available and video element is rendered
+  useEffect(() => {
+    if (stream && videoRef.current) {
+      videoRef.current.srcObject = stream;
+    }
+  }, [stream, cameraEnabled]);
 
   // Cleanup camera stream on unmount
   useEffect(() => {

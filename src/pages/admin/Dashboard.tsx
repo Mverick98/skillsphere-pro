@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ClipboardList, Users, CheckCircle, TrendingUp, Plus, Mail } from 'lucide-react';
+import { ClipboardList, Users, CheckCircle, TrendingUp, Plus, Mail, Eye } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -76,6 +76,23 @@ export const AdminDashboard = () => {
         <p className="text-muted-foreground">Overview of your assessment platform</p>
       </div>
 
+      {/* Quick Actions - Moved to top */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Quick Actions</CardTitle>
+        </CardHeader>
+        <CardContent className="flex gap-4">
+          <Button onClick={() => navigate('/admin/templates/new')}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create New Test
+          </Button>
+          <Button variant="outline" onClick={() => setInviteOpen(true)}>
+            <Mail className="h-4 w-4 mr-2" />
+            Invite Candidates
+          </Button>
+        </CardContent>
+      </Card>
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
@@ -130,6 +147,7 @@ export const AdminDashboard = () => {
                 <TableHead>Status</TableHead>
                 <TableHead>Score</TableHead>
                 <TableHead>Date</TableHead>
+                <TableHead>Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -140,27 +158,22 @@ export const AdminDashboard = () => {
                   <TableCell>{getStatusBadge(activity.status)}</TableCell>
                   <TableCell>{activity.score !== null ? `${activity.score}%` : '-'}</TableCell>
                   <TableCell>{new Date(activity.date).toLocaleDateString()}</TableCell>
+                  <TableCell>
+                    {activity.status === 'completed' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate(`/admin/reports/${activity.id}`)}
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        Report
+                      </Button>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
-
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-        </CardHeader>
-        <CardContent className="flex gap-4">
-          <Button onClick={() => navigate('/admin/templates/new')}>
-            <Plus className="h-4 w-4 mr-2" />
-            Create New Test
-          </Button>
-          <Button variant="outline" onClick={() => setInviteOpen(true)}>
-            <Mail className="h-4 w-4 mr-2" />
-            Invite Candidates
-          </Button>
         </CardContent>
       </Card>
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Target, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -7,7 +7,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { api } from '@/services/api';
+
+interface Role {
+  id: string;
+  name: string;
+  description: string;
+}
 
 const CandidateLogin = () => {
   const [activeTab, setActiveTab] = useState('login');
@@ -23,26 +31,44 @@ const CandidateLogin = () => {
   const [registerPassword, setRegisterPassword] = useState('');
   const [registerConfirmPassword, setRegisterConfirmPassword] = useState('');
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
-  
+  const [selectedRoleId, setSelectedRoleId] = useState('');
+  const [roles, setRoles] = useState<Role[]>([]);
+
   const [isLoading, setIsLoading] = useState(false);
   const { loginCandidate, registerCandidate } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // Load roles when register tab is active
+  useEffect(() => {
+    if (activeTab === 'register' && roles.length === 0) {
+      const loadRoles = async () => {
+        const data = await api.roles.getAll();
+        setRoles(data);
+      };
+      loadRoles();
+    }
+  }, [activeTab, roles.length]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!loginEmail || !loginPassword) {
       toast({ title: 'Error', description: 'Please fill in all fields', variant: 'destructive' });
       return;
     }
 
     setIsLoading(true);
-    const success = await loginCandidate(loginEmail, loginPassword);
+    const result = await loginCandidate(loginEmail, loginPassword);
     setIsLoading(false);
 
-    if (success) {
-      navigate('/dashboard');
+    if (result.success) {
+      // Redirect to role selection if user doesn't have a job role
+      if (result.needsRoleSelection) {
+        navigate('/select-role');
+      } else {
+        navigate('/dashboard');
+      }
     } else {
       toast({ title: 'Error', description: 'Invalid credentials', variant: 'destructive' });
     }
@@ -50,9 +76,9 @@ const CandidateLogin = () => {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!registerName || !registerEmail || !registerPassword || !registerConfirmPassword) {
-      toast({ title: 'Error', description: 'Please fill in all fields', variant: 'destructive' });
+
+    if (!registerName || !registerEmail || !registerPassword || !registerConfirmPassword || !selectedRoleId) {
+      toast({ title: 'Error', description: 'Please fill in all fields including your job role', variant: 'destructive' });
       return;
     }
 
@@ -67,7 +93,7 @@ const CandidateLogin = () => {
     }
 
     setIsLoading(true);
-    const success = await registerCandidate(registerName, registerEmail, registerPassword);
+    const success = await registerCandidate(registerName, registerEmail, registerPassword, selectedRoleId);
     setIsLoading(false);
 
     if (success) {
@@ -133,9 +159,6 @@ const CandidateLogin = () => {
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? 'Signing in...' : 'Sign In'}
                 </Button>
-                <p className="text-center text-xs text-muted-foreground">
-                  Demo: any email / test123
-                </p>
               </form>
             </TabsContent>
             
@@ -160,6 +183,26 @@ const CandidateLogin = () => {
                     value={registerEmail}
                     onChange={(e) => setRegisterEmail(e.target.value)}
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="register-role">Job Role *</Label>
+                  <Select value={selectedRoleId} onValueChange={setSelectedRoleId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select your job role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {roles.map(role => (
+                        <SelectItem key={role.id} value={role.id}>
+                          {role.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {selectedRoleId && roles.find(r => r.id === selectedRoleId)?.description && (
+                    <p className="text-xs text-muted-foreground">
+                      {roles.find(r => r.id === selectedRoleId)?.description}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="register-password">Password</Label>

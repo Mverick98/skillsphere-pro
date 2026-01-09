@@ -22,6 +22,7 @@ interface Candidate {
   score: number | null;
   invited_at: string;
   completed_at: string | null;
+  report_ready: boolean;
 }
 
 interface Template {
@@ -77,6 +78,8 @@ export const AdminCandidates = () => {
     switch (status) {
       case 'pending':
         return <Badge variant="outline" className="bg-warning/10 text-warning border-warning/30">Pending</Badge>;
+      case 'registered':
+        return <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/30">Registered</Badge>;
       case 'in_progress':
         return <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30">In Progress</Badge>;
       case 'completed':
@@ -195,11 +198,14 @@ export const AdminCandidates = () => {
                     <div className="flex gap-1">
                       {candidate.status === 'completed' && (
                         <Button
-                          variant="ghost"
-                          size="icon"
+                          variant="outline"
+                          size="sm"
                           onClick={() => navigate(`/admin/reports/${candidate.invite_id}`)}
+                          disabled={!candidate.report_ready}
+                          title={!candidate.report_ready ? 'Report is being generated...' : 'View Report'}
                         >
-                          <Eye className="h-4 w-4" />
+                          <Eye className="h-4 w-4 mr-1" />
+                          {candidate.report_ready ? 'Report' : 'Generating...'}
                         </Button>
                       )}
                       {candidate.status === 'pending' && (
@@ -214,7 +220,7 @@ export const AdminCandidates = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => setDeleteId(candidate.id)}
+                        onClick={() => setDeleteId(candidate.invite_id)}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
@@ -231,15 +237,25 @@ export const AdminCandidates = () => {
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove Candidate</AlertDialogTitle>
+            <AlertDialogTitle>Remove Invite</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to remove this candidate? This action cannot be undone.
+              Are you sure you want to remove this invite? This will delete the invite and all associated assessment data. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={() => { toast({ title: 'Candidate removed' }); setDeleteId(null); }} 
+            <AlertDialogAction
+              onClick={async () => {
+                try {
+                  await api.admin.deleteInvite(deleteId!);
+                  toast({ title: 'Invite removed', description: 'The invite has been deleted successfully' });
+                  // Refresh from server to ensure consistency
+                  await loadCandidates();
+                } catch (error) {
+                  toast({ title: 'Error', description: 'Failed to delete invite', variant: 'destructive' });
+                }
+                setDeleteId(null);
+              }}
               className="bg-destructive text-destructive-foreground"
             >
               Remove

@@ -1,8 +1,8 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 @layer base {
   :root {
@@ -257,4 +257,60 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* Print styles for PDF export */
+@media print {
+  /* Hide navigation and non-essential elements */
+  nav,
+  header,
+  aside,
+  .no-print,
+  button,
+  [data-radix-popper-content-wrapper] {
+    display: none !important;
+  }
+
+  /* Reset background colors for print */
+  body {
+    background: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Ensure cards print with backgrounds */
+  .bg-success\/10,
+  .bg-warning\/10,
+  .bg-destructive\/10,
+  .bg-primary\/10,
+  .bg-muted {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Page settings */
+  @page {
+    margin: 1cm;
+    size: A4;
+  }
+
+  /* Avoid page breaks inside cards */
+  .card,
+  [class*="Card"] {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Ensure full width */
+  main,
+  .container {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Add print header */
+  .print-header {
+    display: block !important;
+  }
 }

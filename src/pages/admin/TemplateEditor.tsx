@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Star, Check } from 'lucide-react';
+import { ArrowLeft, Star } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -77,16 +77,19 @@ export const TemplateEditor = () => {
       const loadSkills = async () => {
         const data = await api.roles.getSkills(selectedRoleId);
         setSkills(data);
-        
-        // Auto-select all tasks for newly selected skills
+
+        // Don't auto-select tasks when role changes (only when skills are explicitly selected)
+        // Reset selections when changing roles in new template mode
         if (!isEditing) {
-          const allTaskIds = data.flatMap((s: Skill) => s.tasks.map(t => t.id));
-          setSelectedTaskIds(allTaskIds);
+          setSelectedSkillIds([]);
+          setSelectedTaskIds([]);
         }
       };
       loadSkills();
     } else {
       setSkills([]);
+      setSelectedSkillIds([]);
+      setSelectedTaskIds([]);
     }
   }, [selectedRoleId, isEditing]);
 
@@ -173,13 +176,14 @@ export const TemplateEditor = () => {
     if (isEditing && id) {
       await api.admin.updateTemplate(id, data);
       toast({ title: 'Template updated', description: 'Your changes have been saved' });
+      setIsSaving(false);
+      navigate(`/admin/templates/${id}`);
     } else {
-      await api.admin.createTemplate(data);
+      const result = await api.admin.createTemplate(data);
       toast({ title: 'Template created', description: 'Your test template has been created' });
+      setIsSaving(false);
+      navigate(`/admin/templates/${result.id}`);
     }
-    
-    setIsSaving(false);
-    navigate('/admin/templates');
   };
 
   if (isLoading) {
@@ -190,11 +194,19 @@ export const TemplateEditor = () => {
     );
   }
 
+  const handleBack = () => {
+    if (isEditing && id) {
+      navigate(`/admin/templates/${id}`);
+    } else {
+      navigate('/admin/templates');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/admin/templates')}>
+        <Button variant="ghost" size="icon" onClick={handleBack}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>
@@ -256,101 +268,92 @@ export const TemplateEditor = () => {
             </CardContent>
           </Card>
 
-          {/* Skills Selection */}
+          {/* Skills & Tasks Selection - Combined */}
           {skills.length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
-                  <span>Skills Selection</span>
-                  <Badge variant="outline">{selectedSkillIds.length}/5 selected</Badge>
+                  <span>Skills & Tasks Selection</span>
+                  <Badge variant="outline">{selectedSkillIds.length}/5 skills selected</Badge>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                {skills.map(skill => {
-                  const isSelected = selectedSkillIds.includes(skill.id);
-                  return (
-                    <div
-                      key={skill.id}
-                      className={cn(
-                        'flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors',
-                        isSelected ? 'bg-primary/5 border-primary' : 'hover:bg-muted/50'
-                      )}
-                      onClick={() => toggleSkill(skill.id)}
-                    >
-                      <Checkbox checked={isSelected} />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{skill.name}</span>
-                          {skill.importance === 'important' && (
-                            <Star className="h-4 w-4 text-warning fill-warning" />
-                          )}
-                        </div>
-                        <p className="text-sm text-muted-foreground">{skill.description}</p>
-                      </div>
-                      {isSelected && <Check className="h-5 w-5 text-primary" />}
-                    </div>
-                  );
-                })}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Tasks Selection */}
-          {selectedSkillIds.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Tasks Selection</CardTitle>
-              </CardHeader>
               <CardContent>
-                <Accordion type="multiple" defaultValue={selectedSkillIds}>
-                  {skills.filter(s => selectedSkillIds.includes(s.id)).map(skill => (
-                    <AccordionItem key={skill.id} value={skill.id}>
-                      <AccordionTrigger className="hover:no-underline">
-                        <div className="flex items-center justify-between w-full pr-4">
-                          <span className="font-medium">{skill.name}</span>
-                          <Badge variant="secondary">
-                            {getSelectedTasksForSkill(skill)}/{skill.tasks.length}
-                          </Badge>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="space-y-2 pt-2">
-                          <div className="flex gap-2 mb-3">
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={(e) => { e.stopPropagation(); selectAllTasks(skill); }}
-                            >
-                              Select All
-                            </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={(e) => { e.stopPropagation(); deselectAllTasks(skill); }}
-                            >
-                              Deselect All
-                            </Button>
-                          </div>
-                          {skill.tasks.map(task => {
-                            const isSelected = selectedTaskIds.includes(task.id);
-                            return (
-                              <div
-                                key={task.id}
-                                className={cn(
-                                  'flex items-center gap-3 p-2 rounded cursor-pointer',
-                                  isSelected ? 'bg-muted' : 'hover:bg-muted/50'
+                <Accordion type="multiple" value={selectedSkillIds} className="space-y-2">
+                  {skills.map(skill => {
+                    const isSelected = selectedSkillIds.includes(skill.id);
+                    return (
+                      <AccordionItem
+                        key={skill.id}
+                        value={skill.id}
+                        className={cn(
+                          'border rounded-lg px-3',
+                          isSelected ? 'border-primary bg-primary/5' : ''
+                        )}
+                      >
+                        <div className="flex items-center gap-3 py-3">
+                          <Checkbox
+                            checked={isSelected}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleSkill(skill.id);
+                            }}
+                          />
+                          <AccordionTrigger className="flex-1 hover:no-underline py-0">
+                            <div className="flex items-center justify-between w-full pr-2">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{skill.name}</span>
+                                {skill.importance === 'important' && (
+                                  <Star className="h-4 w-4 text-warning fill-warning" />
                                 )}
-                                onClick={() => toggleTask(task.id)}
-                              >
-                                <Checkbox checked={isSelected} />
-                                <span>{task.name}</span>
                               </div>
-                            );
-                          })}
+                              {isSelected && (
+                                <Badge variant="secondary" className="ml-2">
+                                  {getSelectedTasksForSkill(skill)}/{skill.tasks.length} tasks
+                                </Badge>
+                              )}
+                            </div>
+                          </AccordionTrigger>
                         </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
+                        <AccordionContent>
+                          <div className="pb-3 pl-7 space-y-2">
+                            <p className="text-sm text-muted-foreground mb-3">{skill.description}</p>
+                            <div className="flex gap-2 mb-3">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => { e.stopPropagation(); selectAllTasks(skill); }}
+                              >
+                                Select All
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => { e.stopPropagation(); deselectAllTasks(skill); }}
+                              >
+                                Deselect All
+                              </Button>
+                            </div>
+                            {skill.tasks.map(task => {
+                              const isTaskSelected = selectedTaskIds.includes(task.id);
+                              return (
+                                <div
+                                  key={task.id}
+                                  className={cn(
+                                    'flex items-center gap-3 p-2 rounded cursor-pointer',
+                                    isTaskSelected ? 'bg-muted' : 'hover:bg-muted/50'
+                                  )}
+                                  onClick={() => toggleTask(task.id)}
+                                >
+                                  <Checkbox checked={isTaskSelected} />
+                                  <span className="text-sm">{task.name}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    );
+                  })}
                 </Accordion>
               </CardContent>
             </Card>
@@ -389,7 +392,7 @@ export const TemplateEditor = () => {
                 <Button className="w-full" onClick={handleSave} disabled={isSaving}>
                   {isSaving ? 'Saving...' : 'Save Template'}
                 </Button>
-                <Button variant="outline" className="w-full" onClick={() => navigate('/admin/templates')}>
+                <Button variant="outline" className="w-full" onClick={handleBack}>
                   Cancel
                 </Button>
               </div>

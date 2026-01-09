@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Clock, CheckCircle, Eye } from 'lucide-react';
+import { ArrowLeft, Clock, CheckCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -78,7 +78,7 @@ export const CandidateTests = () => {
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     <h3 className="text-lg font-semibold">{test.template_name}</h3>
-                    {test.status === 'pending' ? (
+                    {['pending', 'registered'].includes(test.status) ? (
                       <Badge variant="outline" className="bg-warning/10 text-warning border-warning/30">
                         Pending
                       </Badge>
@@ -98,7 +98,7 @@ export const CandidateTests = () => {
                 </div>
                 
                 <div className="flex flex-col items-end gap-2">
-                  {test.status === 'pending' ? (
+                  {['pending', 'registered'].includes(test.status) ? (
                     <>
                       <p className="text-sm text-muted-foreground">
                         Invited: {new Date(test.invited_at).toLocaleDateString()}
@@ -108,18 +108,12 @@ export const CandidateTests = () => {
                       </Button>
                     </>
                   ) : (
-                    <>
-                      <div className="text-right">
-                        <p className="text-2xl font-bold text-success">{test.score}%</p>
-                        <p className="text-sm text-muted-foreground">
-                          Completed: {test.completed_at ? new Date(test.completed_at).toLocaleDateString() : '-'}
-                        </p>
-                      </div>
-                      <Button variant="outline" onClick={() => navigate(`/results/${test.invite_id}`)}>
-                        <Eye className="h-4 w-4 mr-2" />
-                        View Report
-                      </Button>
-                    </>
+                    <div className="text-right">
+                      <p className="text-2xl font-bold text-success">{test.score}%</p>
+                      <p className="text-sm text-muted-foreground">
+                        Completed: {test.completed_at ? new Date(test.completed_at).toLocaleDateString() : '-'}
+                      </p>
+                    </div>
                   )}
                 </div>
               </div>

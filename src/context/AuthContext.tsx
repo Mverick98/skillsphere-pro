@@ -6,6 +6,8 @@ interface User {
   name: string;
   email: string;
   role?: string;
+  job_role_id?: string;
+  job_role_name?: string;
 }
 
 interface AuthState {
@@ -15,10 +17,15 @@ interface AuthState {
   isLoading: boolean;
 }
 
+interface LoginResult {
+  success: boolean;
+  needsRoleSelection?: boolean;
+}
+
 interface AuthContextType extends AuthState {
   loginAdmin: (email: string, password: string) => Promise<boolean>;
-  loginCandidate: (email: string, password: string) => Promise<boolean>;
-  registerCandidate: (name: string, email: string, password: string) => Promise<boolean>;
+  loginCandidate: (email: string, password: string) => Promise<LoginResult>;
+  registerCandidate: (name: string, email: string, password: string, job_role_id: string) => Promise<boolean>;
   logout: () => void;
 }
 
@@ -75,7 +82,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return false;
   }, []);
 
-  const loginCandidate = useCallback(async (email: string, password: string) => {
+  const loginCandidate = useCallback(async (email: string, password: string): Promise<LoginResult> => {
     const result = await api.candidate.login(email, password);
     if (result.success && result.token && result.user) {
       localStorage.setItem('auth_token', result.token);
@@ -87,13 +94,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         userType: 'candidate',
         isLoading: false,
       });
-      return true;
+      // Check if user needs to select a role
+      const needsRoleSelection = !result.user.job_role_id;
+      return { success: true, needsRoleSelection };
     }
-    return false;
+    return { success: false };
   }, []);
 
-  const registerCandidate = useCallback(async (name: string, email: string, password: string) => {
-    const result = await api.candidate.register(name, email, password);
+  const registerCandidate = useCallback(async (name: string, email: string, password: string, job_role_id: string) => {
+    const result = await api.candidate.register(name, email, password, job_role_id);
     if (result.success && result.token && result.user) {
       localStorage.setItem('auth_token', result.token);
       localStorage.setItem('user_type', 'candidate');

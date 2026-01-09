@@ -133,11 +133,19 @@ export const AdminTemplates = () => {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => navigate(`/admin/templates/${template.id}`)}>
+                        <DropdownMenuItem onClick={() => navigate(`/admin/templates/${template.id}/edit`)}>
                           <Pencil className="h-4 w-4 mr-2" />
                           Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => toast({ title: 'Duplicated', description: 'Template duplicated successfully' })}>
+                        <DropdownMenuItem onClick={async () => {
+                          const result = await api.admin.duplicateTemplate(template.id);
+                          if (result.success) {
+                            toast({ title: 'Duplicated', description: 'Template duplicated successfully' });
+                            loadTemplates();
+                          } else {
+                            toast({ title: 'Error', description: 'Failed to duplicate template', variant: 'destructive' });
+                          }
+                        }}>
                           <Copy className="h-4 w-4 mr-2" />
                           Duplicate
                         </DropdownMenuItem>

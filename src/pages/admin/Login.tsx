@@ -85,9 +85,6 @@ export const AdminLogin = () => {
               {isLoading ? 'Signing in...' : 'Sign In'}
             </Button>
           </form>
-          <p className="text-center text-xs text-muted-foreground mt-4">
-            Demo: admin@example.com / admin123
-          </p>
         </CardContent>
       </Card>
     </div>

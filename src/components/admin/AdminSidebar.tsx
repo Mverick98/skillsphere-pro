@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, ClipboardList, Users, BarChart3, LogOut } from 'lucide-react';
+import { LayoutDashboard, ClipboardList, Users, UserCheck, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 const navItems = [
   { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/admin/templates', label: 'Test Templates', icon: ClipboardList },
-  { to: '/admin/candidates', label: 'Candidates', icon: Users },
+  { to: '/admin/users', label: 'Users', icon: Users },
+  { to: '/admin/candidates', label: 'Invites', icon: UserCheck },
 ];
 
 export const AdminSidebar = () => {
