@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import StarRating from '@/components/assessment/StarRating';
 import { cn } from '@/lib/utils';
 import { api } from '@/services/api';
+import ProctoringEvidence from '@/components/proctoring/ProctoringEvidence';
 
 interface AssessmentFlag {
   type: string;
@@ -523,49 +524,12 @@ export const CandidateResultsDetail = () => {
         </Card>
       )}
 
-      {/* Flagged Activities - Only show if there are flags */}
-      {results.flagged_activities && results.flagged_activities.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Flag className="h-5 w-5 text-amber-500" />
-              Flagged Activities
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {results.flagged_activities.map((activity, i) => (
-                <div key={i} className="flex items-start justify-between text-sm py-2 border-b border-muted last:border-0">
-                  <div className="flex items-center gap-3">
-                    <span className="text-muted-foreground">
-                      {getActivityIcon(activity.icon)}
-                    </span>
-                    <span>{activity.label}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {activity.flag_level === "flag" ? (
-                      <span className="text-red-500 font-medium">🚩 {activity.count}</span>
-                    ) : (
-                      <span className="text-amber-500">🏳</span>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {/* Timestamps section */}
-              {results.flagged_activities.filter(a => a.timestamps && a.timestamps.length > 0).length > 0 && (
-                <div className="mt-3 pt-3 border-t text-xs text-muted-foreground">
-                  {results.flagged_activities.filter(a => a.timestamps && a.timestamps.length > 0).map((activity, i) => (
-                    <div key={`ts-${i}`}>
-                      <span className="font-medium">{activity.label}:</span>{' '}
-                      {activity.timestamps?.join(' | ')}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Flagged Activities (Proctoring Evidence) */}
+      <ProctoringEvidence
+        assessmentId={results.assessment_id}
+        showVideoClips={true}
+        isAdmin={false}
+      />
 
       {/* Actions */}
       <div className="flex justify-center gap-4">

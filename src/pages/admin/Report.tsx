@@ -10,6 +10,7 @@ import { api } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import FitToRoleGauge from '@/components/assessment/FitToRoleGauge';
+import ProctoringEvidence from '@/components/proctoring/ProctoringEvidence';
 
 // =============================================================================
 // TYPE DEFINITIONS - Aligned with Bloom's Taxonomy Scoring
@@ -182,6 +183,7 @@ interface LLMReport {
 
 interface ReportData {
   invite_id: string;
+  assessment_id?: string;
   candidate: { name: string; email: string };
   template: { name: string; role: string };
   invited_at: string;
@@ -909,46 +911,13 @@ export const AdminReport = () => {
         </Card>
       )}
 
-      {/* Section 5 Flags removed - using Flagged Activities instead */}
-
-      {/* ========== FLAGGED ACTIVITIES (Only show if there are flags) ========== */}
-      {report.flagged_activities && report.flagged_activities.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Flag className="h-5 w-5 text-amber-500" />
-              Flagged Activities
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {report.flagged_activities.map((activity, i) => (
-                <div key={i} className="flex items-start justify-between text-sm py-2 border-b border-muted last:border-0">
-                  <div className="flex items-center gap-3">
-                    <span className="text-muted-foreground">
-                      {getActivityIcon(activity.icon)}
-                    </span>
-                    <span>{activity.label}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {activity.flag_level === "flag" ? (
-                      <span className="text-red-500 font-medium">🚩 {activity.count}</span>
-                    ) : (
-                      <span className="text-amber-500">🏳</span>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {/* Timestamps section */}
-              {report.flagged_activities.filter(a => a.timestamps && a.timestamps.length > 0).map((activity, i) => (
-                <div key={`ts-${i}`} className="text-xs text-muted-foreground pl-7">
-                  <span className="font-medium">{activity.label} timestamps:</span>{' '}
-                  {activity.timestamps?.join(' | ')}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      {/* ========== FLAGGED ACTIVITIES (Proctoring Evidence) ========== */}
+      {report.assessment_id && (
+        <ProctoringEvidence
+          assessmentId={report.assessment_id}
+          showVideoClips={true}
+          isAdmin={true}
+        />
       )}
 
       {/* ========== ADMIN DETAILS ========== */}

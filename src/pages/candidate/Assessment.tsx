@@ -17,10 +17,12 @@ import {
   BookOpen,
   Maximize2,
   FileText,
-  BookMarked
+  BookMarked,
+  Camera
 } from 'lucide-react';
 import { api } from '@/services/api';
 import { useBrowserProctoring } from '@/hooks/useBrowserProctoring';
+import { useProctoringRecorder } from '@/hooks/useProctoringRecorder';
 import { cn } from '@/lib/utils';
 
 interface Question {
@@ -88,10 +90,16 @@ export const CandidateAssessment = () => {
     chunk_id?: string;
   } | null>(null);
   const [isSourceExpanded, setIsSourceExpanded] = useState(false);
+  const [showMediaBlockedWarning, setShowMediaBlockedWarning] = useState(false);
+  const [mediaBlockedCount, setMediaBlockedCount] = useState(0);
+  const [isMediaPaused, setIsMediaPaused] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const tabAwayStartRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+  const recordingStartedRef = useRef(false);
+  const mediaBlockedAtRef = useRef<number | null>(null);
 
   // Browser proctoring hook
   const { requestFullscreen, isFullscreen, state: proctoringState } = useBrowserProctoring({
@@ -104,6 +112,18 @@ export const CandidateAssessment = () => {
     onViolation: (type, metadata) => {
       console.log('[Proctoring] Violation recorded:', type, metadata);
     },
+  });
+
+  // Video/Audio recording hook
+  const {
+    startRecording,
+    stopRecording,
+    isRecording,
+  } = useProctoringRecorder({
+    assessmentId: state?.assessmentId || '',
+    enabled: !!state?.proctoringEnabled,
+    externalStream: mediaStream,
+    onError: (error) => console.error('[Recording] Error:', error),
   });
 
   // Get assessment config from state (skill assessment)
@@ -162,26 +182,104 @@ export const CandidateAssessment = () => {
     initAssessment();
   }, [inviteId, assessmentConfig, navigate]);
 
-  // Setup camera for proctoring
+  // Handle track ended (user blocked camera/mic)
+  const handleTrackEnded = useCallback((trackType: string) => {
+    console.log(`[Proctoring] ${trackType} track ended - user blocked access`);
+    mediaBlockedAtRef.current = Date.now();
+    setIsMediaPaused(true);
+    setIsTimerPaused(true);
+    setShowMediaBlockedWarning(true);
+    setMediaBlockedCount(prev => prev + 1);
+
+    // Record violation
+    if (state?.assessmentId) {
+      api.proctoring.recordEvent(state.assessmentId, 'media_blocked', {
+        track_type: trackType,
+        block_count: mediaBlockedCount + 1,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }, [state?.assessmentId, mediaBlockedCount]);
+
+  // Request media permission (initial or re-request after block)
+  const requestMediaPermission = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: true,
+      });
+
+      // Add ended listeners to detect future blocks
+      stream.getTracks().forEach(track => {
+        track.onended = () => handleTrackEnded(track.kind);
+      });
+
+      streamRef.current = stream;
+      setMediaStream(stream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+
+      // If resuming from blocked state
+      if (isMediaPaused && mediaBlockedAtRef.current) {
+        const blockedDuration = Math.floor((Date.now() - mediaBlockedAtRef.current) / 1000);
+        console.log(`[Proctoring] Media resumed after ${blockedDuration}s`);
+
+        // Record resume event
+        if (state?.assessmentId) {
+          api.proctoring.recordEvent(state.assessmentId, 'media_resumed', {
+            blocked_duration_seconds: blockedDuration,
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        setIsMediaPaused(false);
+        setIsTimerPaused(false);
+        setShowMediaBlockedWarning(false);
+        mediaBlockedAtRef.current = null;
+
+        // Restart recording with new stream
+        if (recordingStartedRef.current) {
+          recordingStartedRef.current = false; // Allow restart
+        }
+      }
+
+      return true;
+    } catch (error) {
+      console.error('[Proctoring] Failed to get media permissions:', error);
+      return false;
+    }
+  }, [handleTrackEnded, isMediaPaused, state?.assessmentId]);
+
+  // Setup camera and microphone for proctoring
   useEffect(() => {
     if (!state?.proctoringEnabled) return;
 
-    navigator.mediaDevices
-      .getUserMedia({ video: { facingMode: 'user', width: 160, height: 120 } })
-      .then((stream) => {
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-      })
-      .catch(console.error);
+    requestMediaPermission();
 
     return () => {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
     };
-  }, [state?.proctoringEnabled]);
+  }, [state?.proctoringEnabled, requestMediaPermission]);
+
+  // Connect stream to video element whenever stream or element changes
+  useEffect(() => {
+    if (mediaStream && videoRef.current) {
+      videoRef.current.srcObject = mediaStream;
+      console.log('[Proctoring] Video stream connected to element');
+    }
+  }, [mediaStream]);
+
+  // Start recording when stream is ready
+  useEffect(() => {
+    if (mediaStream && state?.assessmentId && !recordingStartedRef.current) {
+      recordingStartedRef.current = true;
+      console.log('[Proctoring] Starting video recording...');
+      startRecording();
+    }
+  }, [mediaStream, state?.assessmentId, startRecording]);
 
   // Request fullscreen when assessment starts
   useEffect(() => {
@@ -210,6 +308,25 @@ export const CandidateAssessment = () => {
 
     return () => clearInterval(interval);
   }, [state, isTimerPaused]);
+
+  // Warn user before leaving/closing tab during assessment
+  useEffect(() => {
+    if (!state?.assessmentId) return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Try to stop recording (may not complete before page closes)
+      if (isRecording) {
+        stopRecording();
+      }
+      // Show browser warning
+      e.preventDefault();
+      e.returnValue = 'You have an assessment in progress. Are you sure you want to leave?';
+      return e.returnValue;
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [state?.assessmentId, isRecording, stopRecording]);
 
   // Reading timer - auto-advance after 60 seconds
   useEffect(() => {
@@ -278,6 +395,10 @@ export const CandidateAssessment = () => {
   const finishAssessment = useCallback(async () => {
     if (!state) return;
 
+    // Stop recording first (uploads remaining chunks and finalizes)
+    console.log('[Proctoring] Stopping recording...');
+    await stopRecording();
+
     // Stop camera
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
@@ -299,7 +420,7 @@ export const CandidateAssessment = () => {
         skillName: isSkillAssessment ? currentQuestion?.skillName : null,
       }
     });
-  }, [state, navigate, assessmentConfig, currentQuestion]);
+  }, [state, navigate, assessmentConfig, currentQuestion, stopRecording]);
 
   // Store next question from submit response
   const [nextQuestionData, setNextQuestionData] = useState<Question | null>(null);
@@ -728,6 +849,38 @@ export const CandidateAssessment = () => {
             >
               <Maximize2 className="w-4 h-4 mr-2" />
               Return to Fullscreen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Media Blocked Warning Modal */}
+      <Dialog open={showMediaBlockedWarning} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 rounded-lg bg-destructive/10">
+                <Camera className="w-5 h-5 text-destructive" />
+              </div>
+              <DialogTitle>Camera/Microphone Access Required</DialogTitle>
+            </div>
+            <DialogDescription>
+              Your camera or microphone access was blocked. The assessment timer is paused.
+              Please grant access to continue.
+              {mediaBlockedCount > 1 && (
+                <span className="block mt-2 text-destructive font-medium">
+                  Warning: Camera/microphone has been blocked {mediaBlockedCount} times. This will be flagged in your integrity report.
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4">
+            <Button
+              onClick={requestMediaPermission}
+              className="w-full"
+            >
+              <Camera className="w-4 h-4 mr-2" />
+              Grant Access & Resume
             </Button>
           </DialogFooter>
         </DialogContent>

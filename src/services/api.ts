@@ -252,6 +252,16 @@ export const api = {
         return [];
       }
     },
+
+    getProctoringViolations: async (assessmentId: string) => {
+      try {
+        const { data } = await apiClient.get(`/admin/assessments/${assessmentId}/proctoring/violations`);
+        return data;
+      } catch (error) {
+        console.error('Failed to get proctoring violations:', error);
+        return { post_hoc_violations: [], real_time_events: [], summary: {} };
+      }
+    },
   },
 
   // ============ CANDIDATE ENDPOINTS ============
@@ -375,6 +385,16 @@ export const api = {
       } catch (error) {
         console.error('Failed to search skills:', error);
         return [];
+      }
+    },
+
+    getProctoringViolations: async (assessmentId: string) => {
+      try {
+        const { data } = await apiClient.get(`/assessments/${assessmentId}/proctoring/my-violations`);
+        return data;
+      } catch (error) {
+        console.error('Failed to get proctoring violations:', error);
+        return { violations: [], events: [], summary: {} };
       }
     },
   },
@@ -507,9 +527,12 @@ export const api = {
       metadata?: Record<string, unknown>
     ) => {
       try {
+        // Backend requires timestamp as separate field
+        const { timestamp, ...restMetadata } = metadata || {};
         await apiClient.post(`/assessments/${assessmentId}/proctoring/event`, {
           event_type: eventType,
-          metadata,
+          timestamp: timestamp || new Date().toISOString(),
+          metadata: Object.keys(restMetadata).length > 0 ? restMetadata : null,
         });
         return { success: true };
       } catch (error) {
@@ -538,6 +561,32 @@ export const api = {
       } catch (error) {
         console.error('Failed to get proctoring summary:', error);
         throw error;
+      }
+    },
+
+    uploadVideoChunk: async (assessmentId: string, blob: Blob, chunkIndex: number) => {
+      try {
+        const formData = new FormData();
+        formData.append('video', blob, `chunk_${chunkIndex}.webm`);
+        formData.append('chunk_index', chunkIndex.toString());
+
+        await apiClient.post(`/assessments/${assessmentId}/proctoring/upload-chunk`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return { success: true };
+      } catch (error) {
+        console.warn('Failed to upload video chunk:', error);
+        return { success: false };
+      }
+    },
+
+    finalizeRecording: async (assessmentId: string) => {
+      try {
+        const { data } = await apiClient.post(`/assessments/${assessmentId}/proctoring/finalize-recording`);
+        return { success: true, ...data };
+      } catch (error) {
+        console.warn('Failed to finalize recording:', error);
+        return { success: false };
       }
     },
   },
