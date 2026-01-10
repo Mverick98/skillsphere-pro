@@ -167,13 +167,13 @@ const AssessmentWindow = () => {
         <div className="container max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
           {/* Question Counter */}
           <div className="text-sm font-medium text-foreground">
-            Question {currentQuestionIndex + 1} of {questions.length}
+            Question {currentQuestionIndex + 1}
           </div>
 
-          {/* Progress Bar */}
+          {/* Progress Bar - Time remaining */}
           <div className="flex-1 max-w-md mx-8">
             <Progress
-              value={((currentQuestionIndex + 1) / questions.length) * 100}
+              value={(timeRemaining / timeLimit) * 100}
               className="h-2"
             />
           </div>

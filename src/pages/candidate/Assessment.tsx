@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import {
   Clock,
   ChevronRight,
@@ -13,9 +13,11 @@ import {
   Check,
   X,
   AlertTriangle,
-  BookOpen
+  BookOpen,
+  Maximize2
 } from 'lucide-react';
 import { api } from '@/services/api';
+import { useBrowserProctoring } from '@/hooks/useBrowserProctoring';
 import { cn } from '@/lib/utils';
 
 interface Question {
@@ -23,6 +25,7 @@ interface Question {
   text: string;
   skillName: string;
   taskName: string;
+  bloomLevel: string;
   options: { id: string; text: string }[];
 }
 
@@ -45,11 +48,13 @@ const transformQuestion = (q: {
   options: Record<string, string>;
   skill_name: string;
   task_name: string;
+  bloom_level?: string;
 }): Question => ({
   id: q.id,
   text: q.question_text,
   skillName: q.skill_name,
   taskName: q.task_name,
+  bloomLevel: q.bloom_level || 'apply',
   options: Object.entries(q.options).map(([key, text]) => ({ id: key, text })),
 });
 
@@ -65,6 +70,8 @@ export const CandidateAssessment = () => {
   const [showTabWarning, setShowTabWarning] = useState(false);
   const [tabAwayTime, setTabAwayTime] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [showFullscreenWarning, setShowFullscreenWarning] = useState(false);
+  const [fullscreenExitCount, setFullscreenExitCount] = useState(0);
 
   // New state for Submit/Next separation
   const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false);
@@ -76,6 +83,19 @@ export const CandidateAssessment = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const tabAwayStartRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+
+  // Browser proctoring hook
+  const { requestFullscreen, isFullscreen, state: proctoringState } = useBrowserProctoring({
+    assessmentId: state?.assessmentId || '',
+    enabled: !!state?.proctoringEnabled,
+    onFullscreenExit: () => {
+      setFullscreenExitCount(prev => prev + 1);
+      setShowFullscreenWarning(true);
+    },
+    onViolation: (type, metadata) => {
+      console.log('[Proctoring] Violation recorded:', type, metadata);
+    },
+  });
 
   // Get assessment config from state (skill assessment)
   const assessmentConfig = location.state as {
@@ -153,6 +173,17 @@ export const CandidateAssessment = () => {
       }
     };
   }, [state?.proctoringEnabled]);
+
+  // Request fullscreen when assessment starts
+  useEffect(() => {
+    if (state?.proctoringEnabled && !isLoading) {
+      // Small delay to ensure DOM is ready
+      const timer = setTimeout(() => {
+        requestFullscreen();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [state?.proctoringEnabled, isLoading, requestFullscreen]);
 
   // Main Timer - pauses when answer is submitted
   useEffect(() => {
@@ -239,6 +270,11 @@ export const CandidateAssessment = () => {
     // Stop camera
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
+    }
+
+    // Exit fullscreen
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(console.error);
     }
 
     // Complete assessment
@@ -353,12 +389,12 @@ export const CandidateAssessment = () => {
       <header className="border-b bg-card sticky top-0 z-20">
         <div className="container max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="text-sm font-medium text-foreground">
-            Question {state.currentQuestionNumber} of {state.totalQuestions}
+            Question {state.currentQuestionNumber}
           </div>
 
           <div className="flex-1 max-w-md mx-8">
             <Progress
-              value={(state.currentQuestionNumber / state.totalQuestions) * 100}
+              value={(timeRemaining / state.timeLimit) * 100}
               className="h-2"
             />
           </div>
@@ -401,6 +437,20 @@ export const CandidateAssessment = () => {
             <div className="flex items-center gap-3 flex-wrap">
               <Badge variant="secondary">{currentQuestion.skillName}</Badge>
               <Badge variant="outline">{currentQuestion.taskName}</Badge>
+              <Badge
+                variant="outline"
+                className={cn(
+                  "capitalize",
+                  // Gaming-inspired progression: Bronze → Silver → Gold → Platinum → Diamond
+                  currentQuestion.bloomLevel === 'remember' && "bg-amber-600/10 text-amber-700 border-amber-300", // Bronze
+                  currentQuestion.bloomLevel === 'understand' && "bg-slate-400/10 text-slate-600 border-slate-300", // Silver
+                  currentQuestion.bloomLevel === 'apply' && "bg-yellow-500/10 text-yellow-700 border-yellow-300", // Gold
+                  currentQuestion.bloomLevel === 'analyze' && "bg-cyan-500/10 text-cyan-700 border-cyan-300", // Platinum
+                  currentQuestion.bloomLevel === 'evaluate' && "bg-violet-500/10 text-violet-700 border-violet-300" // Diamond
+                )}
+              >
+                {currentQuestion.bloomLevel}
+              </Badge>
             </div>
 
             {/* Question */}
@@ -524,12 +574,42 @@ export const CandidateAssessment = () => {
                     muted
                     className="w-full h-full object-cover"
                   />
+                  {/* Fullscreen indicator overlay */}
+                  {!isFullscreen && (
+                    <div className="absolute inset-0 bg-destructive/20 flex items-center justify-center">
+                      <div className="bg-background/90 px-2 py-1 rounded text-xs text-destructive font-medium">
+                        Not Fullscreen
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <CardContent className="p-3">
+                <CardContent className="p-3 space-y-2">
                   <div className="flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-success" />
-                    <span className="text-xs font-medium text-success">Proctoring Active</span>
+                    <Shield className={cn(
+                      "w-4 h-4",
+                      isFullscreen ? "text-success" : "text-warning"
+                    )} />
+                    <span className={cn(
+                      "text-xs font-medium",
+                      isFullscreen ? "text-success" : "text-warning"
+                    )}>
+                      {isFullscreen ? "Proctoring Active" : "Fullscreen Required"}
+                    </span>
                   </div>
+                  {/* Show violation counts if any */}
+                  {(proctoringState.copyAttemptCount > 0 || proctoringState.blockedShortcutCount > 0 || state.tabSwitches > 0) && (
+                    <div className="text-xs text-muted-foreground space-y-1 pt-1 border-t">
+                      {state.tabSwitches > 0 && (
+                        <div>Tab switches: {state.tabSwitches}</div>
+                      )}
+                      {proctoringState.copyAttemptCount > 0 && (
+                        <div>Copy attempts: {proctoringState.copyAttemptCount}</div>
+                      )}
+                      {proctoringState.blockedShortcutCount > 0 && (
+                        <div>Blocked shortcuts: {proctoringState.blockedShortcutCount}</div>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -554,6 +634,40 @@ export const CandidateAssessment = () => {
           <Button onClick={() => setShowTabWarning(false)} className="w-full mt-4">
             Continue Assessment
           </Button>
+        </DialogContent>
+      </Dialog>
+
+      {/* Fullscreen Warning Modal */}
+      <Dialog open={showFullscreenWarning} onOpenChange={setShowFullscreenWarning}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 rounded-lg bg-destructive/10">
+                <Maximize2 className="w-5 h-5 text-destructive" />
+              </div>
+              <DialogTitle>Fullscreen Required</DialogTitle>
+            </div>
+            <DialogDescription>
+              You exited fullscreen mode. This assessment requires fullscreen for proctoring purposes.
+              {fullscreenExitCount > 1 && (
+                <span className="block mt-2 text-destructive font-medium">
+                  Warning: You have exited fullscreen {fullscreenExitCount} times. This will be flagged in your integrity report.
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4">
+            <Button
+              onClick={() => {
+                requestFullscreen();
+                setShowFullscreenWarning(false);
+              }}
+              className="w-full"
+            >
+              <Maximize2 className="w-4 h-4 mr-2" />
+              Return to Fullscreen
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
