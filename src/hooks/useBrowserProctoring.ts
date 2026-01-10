@@ -14,6 +14,8 @@ interface BrowserProctoringState {
   copyAttemptCount: number;
   devtoolsOpenCount: number;
   blockedShortcutCount: number;
+  tabSwitchCount: number;
+  windowBlurCount: number;
 }
 
 export const useBrowserProctoring = ({
@@ -28,9 +30,13 @@ export const useBrowserProctoring = ({
     copyAttemptCount: 0,
     devtoolsOpenCount: 0,
     blockedShortcutCount: 0,
+    tabSwitchCount: 0,
+    windowBlurCount: 0,
   });
 
   const devtoolsOpenRef = useRef(false);
+  const hiddenTimestampRef = useRef<number | null>(null);
+  const blurTimestampRef = useRef<number | null>(null);
 
   // Record event helper
   const recordEvent = useCallback(
@@ -220,6 +226,75 @@ export const useBrowserProctoring = ({
       document.head.removeChild(style);
     };
   }, [enabled]);
+
+  // 6. Visibility change detection (tab switch, minimize, Cmd+Tab)
+  useEffect(() => {
+    if (!enabled) return;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // Tab/window became hidden
+        hiddenTimestampRef.current = Date.now();
+
+        setState(prev => ({
+          ...prev,
+          tabSwitchCount: prev.tabSwitchCount + 1,
+        }));
+
+        recordEvent('tab_switch', {
+          reason: 'visibility_hidden',
+          switch_count: state.tabSwitchCount + 1,
+        });
+      } else if (hiddenTimestampRef.current) {
+        // Tab/window became visible again
+        const awaySeconds = (Date.now() - hiddenTimestampRef.current) / 1000;
+        hiddenTimestampRef.current = null;
+
+        recordEvent('tab_return', {
+          away_duration_seconds: Math.round(awaySeconds * 10) / 10,
+        });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [enabled, state.tabSwitchCount, recordEvent]);
+
+  // 7. Window blur/focus detection (catches Cmd+Tab faster)
+  useEffect(() => {
+    if (!enabled) return;
+
+    const handleBlur = () => {
+      blurTimestampRef.current = Date.now();
+
+      setState(prev => ({
+        ...prev,
+        windowBlurCount: prev.windowBlurCount + 1,
+      }));
+
+      recordEvent('window_blur', {
+        blur_count: state.windowBlurCount + 1,
+      });
+    };
+
+    const handleFocus = () => {
+      if (blurTimestampRef.current) {
+        const awaySeconds = (Date.now() - blurTimestampRef.current) / 1000;
+        blurTimestampRef.current = null;
+
+        recordEvent('window_focus', {
+          away_duration_seconds: Math.round(awaySeconds * 10) / 10,
+        });
+      }
+    };
+
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [enabled, state.windowBlurCount, recordEvent]);
 
   return {
     state,

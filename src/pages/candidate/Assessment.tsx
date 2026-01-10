@@ -8,13 +8,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import {
   Clock,
   ChevronRight,
+  ChevronDown,
   SkipForward,
   Shield,
   Check,
   X,
   AlertTriangle,
   BookOpen,
-  Maximize2
+  Maximize2,
+  FileText,
+  BookMarked
 } from 'lucide-react';
 import { api } from '@/services/api';
 import { useBrowserProctoring } from '@/hooks/useBrowserProctoring';
@@ -79,6 +82,12 @@ export const CandidateAssessment = () => {
   const [correctAnswer, setCorrectAnswer] = useState<string | null>(null);
   const [explanations, setExplanations] = useState<Record<string, string>>({});
   const [readingTimeLeft, setReadingTimeLeft] = useState(45);
+  const [sourceContext, setSourceContext] = useState<{
+    book_name?: string;
+    section?: string;
+    chunk_id?: string;
+  } | null>(null);
+  const [isSourceExpanded, setIsSourceExpanded] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const tabAwayStartRef = useRef<number | null>(null);
@@ -229,6 +238,8 @@ export const CandidateAssessment = () => {
     setCorrectAnswer(null);
     setExplanations({});
     setReadingTimeLeft(45);
+    setSourceContext(null);
+    setIsSourceExpanded(false);
   }, [state?.currentQuestionNumber]);
 
   // Tab visibility detection
@@ -324,6 +335,7 @@ export const CandidateAssessment = () => {
     // Set revealed data
     setCorrectAnswer(response.correct_answer);
     setExplanations(response.explanations || {});
+    setSourceContext(response.source_context || null);
     setIsAnswerSubmitted(true);
     setIsTimerPaused(true);
     setReadingTimeLeft(45);
@@ -612,6 +624,56 @@ export const CandidateAssessment = () => {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Source Context - shown during reading time */}
+              {isAnswerSubmitted && sourceContext && (sourceContext.book_name || sourceContext.section) && (
+                <Card className="mt-3 overflow-hidden">
+                  <button
+                    onClick={() => setIsSourceExpanded(!isSourceExpanded)}
+                    className="w-full p-3 flex items-center justify-between hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <BookMarked className="w-4 h-4 text-primary" />
+                      <span className="text-sm font-medium">Source Reference</span>
+                    </div>
+                    <ChevronDown
+                      className={cn(
+                        "w-4 h-4 text-muted-foreground transition-transform",
+                        isSourceExpanded && "rotate-180"
+                      )}
+                    />
+                  </button>
+                  {isSourceExpanded && (
+                    <CardContent className="pt-0 pb-3 px-3 border-t">
+                      <div className="space-y-2 text-xs">
+                        {sourceContext.book_name && (
+                          <div className="flex items-start gap-2">
+                            <FileText className="w-3.5 h-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                            <div>
+                              <div className="text-muted-foreground">Book</div>
+                              <div className="font-medium text-foreground">
+                                {sourceContext.book_name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        {sourceContext.section && (
+                          <div className="flex items-start gap-2">
+                            <BookOpen className="w-3.5 h-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                            <div>
+                              <div className="text-muted-foreground">Section</div>
+                              <div className="font-medium text-foreground">{sourceContext.section}</div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-2 italic">
+                        Review this section for deeper understanding
+                      </p>
+                    </CardContent>
+                  )}
+                </Card>
+              )}
             </div>
           )}
         </div>
