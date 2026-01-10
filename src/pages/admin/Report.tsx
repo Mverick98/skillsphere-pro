@@ -9,10 +9,19 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { api } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import FitToRoleGauge from '@/components/assessment/FitToRoleGauge';
 
 // =============================================================================
 // TYPE DEFINITIONS - Aligned with Bloom's Taxonomy Scoring
 // =============================================================================
+
+interface AssessmentFlag {
+  type: string;
+  severity: string;
+  message?: string;
+  task_id?: string;
+  task_name?: string;
+}
 
 interface TaskData {
   task_name: string;
@@ -29,6 +38,7 @@ interface TaskData {
   can_do?: string;
   cannot_do?: string | null;
   level?: string;
+  flags?: AssessmentFlag[];
 }
 
 interface SkillData {
@@ -213,7 +223,7 @@ interface ReportData {
   overall_fitment?: string;
   confidence_label?: string;
   has_critical_flags?: boolean;
-  flags?: Array<{ type: string; severity: string; message: string }>;
+  flags?: Array<{ type: string; severity: string; message: string; task_name?: string; task_id?: string }>;
   flagged_activities?: FlaggedActivity[] | null;
 }
 
@@ -395,17 +405,11 @@ export const AdminReport = () => {
 
       {/* ========== FITMENT SUMMARY CARD ========== */}
       <Card className="border-2 overflow-hidden">
-        <div className={cn(
-          'h-2',
-          overallFitment === 'RECOMMENDED' && 'bg-green-500',
-          overallFitment === 'CONDITIONAL' && 'bg-amber-500',
-          overallFitment === 'NOT_RECOMMENDED' && 'bg-red-500'
-        )} />
         <CardContent className="py-6">
           <div className="flex flex-col md:flex-row items-center gap-6">
-            {/* Score */}
+            {/* Speedometer Gauge - Fit to Role */}
             <div className="flex-shrink-0">
-              <ScoreGauge score={overallScore} label="Overall Score" size="lg" />
+              <FitToRoleGauge score={overallScore} size="md" />
             </div>
 
             {/* Spacer */}
@@ -425,6 +429,21 @@ export const AdminReport = () => {
                 <div className="text-xl font-bold">{report.accuracy}%</div>
                 <div className="text-xs text-muted-foreground">Accuracy</div>
               </div>
+            </div>
+
+            {/* Badges */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <ConfidenceBadge label={confidenceLabel} />
+              {/* Overall-level flags (e.g., ASSESSMENT_INCOMPLETE) */}
+              {report.flags && report.flags.filter(f => !f.task_name).map((flag, fi) => (
+                <Badge key={fi} variant="outline" className={cn(
+                  "text-xs",
+                  flag.severity === 'HIGH' ? 'bg-red-500/10 text-red-600 border-red-200' :
+                  'bg-amber-500/10 text-amber-600 border-amber-200'
+                )}>
+                  {flag.type.replace(/_/g, ' ')}
+                </Badge>
+              ))}
             </div>
           </div>
 
@@ -593,6 +612,20 @@ export const AdminReport = () => {
                       <div className="flex items-center gap-3">
                         <span className="font-semibold">{skillData.skill_name}</span>
                         <PassFailStamp status={passFail} size="sm" />
+                        {skillData.confidence_label && (
+                          <ConfidenceBadge label={skillData.confidence_label} />
+                        )}
+                        {/* Skill-level flags - show count if there are any task flags */}
+                        {skillData.flags && skillData.flags.length > 0 && (
+                          <Badge variant="outline" className={cn(
+                            "text-xs",
+                            skillData.flags.some(f => f.severity === 'HIGH')
+                              ? 'bg-red-500/10 text-red-600 border-red-200'
+                              : 'bg-amber-500/10 text-amber-600 border-amber-200'
+                          )}>
+                            {skillData.flags.length} {skillData.flags.length === 1 ? 'flag' : 'flags'}
+                          </Badge>
+                        )}
                       </div>
                       <span className="text-sm font-medium">{skillData.skill_score?.toFixed(0) || '-'}%</span>
                     </div>
@@ -623,7 +656,19 @@ export const AdminReport = () => {
                             <AccordionItem key={ti} value={`skill-${i}-task-${ti}`} className="border rounded bg-muted/20">
                               <AccordionTrigger className="hover:no-underline px-3 py-2 text-sm">
                                 <div className="flex items-center justify-between w-full pr-2">
-                                  <span>{task.task_name}</span>
+                                  <div className="flex items-center gap-2">
+                                    <span>{task.task_name}</span>
+                                    {/* Task-level flags */}
+                                    {task.flags && task.flags.length > 0 && task.flags.map((flag, fi) => (
+                                      <Badge key={fi} variant="outline" className={cn(
+                                        "text-xs",
+                                        flag.severity === 'HIGH' ? 'bg-red-500/10 text-red-600 border-red-200' :
+                                        'bg-amber-500/10 text-amber-600 border-amber-200'
+                                      )}>
+                                        {flag.type.replace(/_/g, ' ')}
+                                      </Badge>
+                                    ))}
+                                  </div>
                                   <div className="flex items-center gap-3">
                                     <span className="text-xs text-muted-foreground">
                                       {task.correct_count || 0}/{(task.correct_count || 0) + (task.incorrect_count || 0)}
@@ -632,6 +677,16 @@ export const AdminReport = () => {
                                     <Badge variant={task.status === 'proficient' ? 'default' : task.status === 'needs_practice' ? 'secondary' : 'outline'} className="text-xs">
                                       {task.status?.replace('_', ' ')}
                                     </Badge>
+                                    {task.confidence_label && (
+                                      <Badge variant="outline" className={cn(
+                                        "text-xs",
+                                        task.confidence_label === 'High' ? 'text-green-600 border-green-200' :
+                                        task.confidence_label === 'Medium' ? 'text-amber-600 border-amber-200' :
+                                        'text-orange-600 border-orange-200'
+                                      )}>
+                                        {task.confidence_label}
+                                      </Badge>
+                                    )}
                                   </div>
                                 </div>
                               </AccordionTrigger>

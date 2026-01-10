@@ -8,9 +8,17 @@ import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useToast } from '@/hooks/use-toast';
-import ProficiencyGauge from '@/components/assessment/ProficiencyGauge';
+import StarRating from '@/components/assessment/StarRating';
 import { cn } from '@/lib/utils';
 import { api } from '@/services/api';
+
+interface AssessmentFlag {
+  type: string;
+  severity: string;
+  message?: string;
+  task_id?: string;
+  task_name?: string;
+}
 
 interface SkillResult {
   skill_id: string;
@@ -24,9 +32,11 @@ interface SkillResult {
     correct: boolean;
     time_taken_seconds: number;
     status: string;
+    flags?: AssessmentFlag[];
   }>;
   strengths: string[];
   weaknesses: string[];
+  flags?: AssessmentFlag[];
 }
 
 interface FlaggedActivity {
@@ -54,6 +64,7 @@ interface LLMSkillReport {
     core_insight?: string;
     practical_implication?: string;
   };
+  performance_summary?: string;  // One-liner positive summary from LLM
   task_performance?: Array<{
     task_name: string;
     task_score: number;
@@ -64,6 +75,7 @@ interface LLMSkillReport {
     status: string;
     can_do?: string;
     cannot_do?: string | null;
+    flags?: AssessmentFlag[];
   }>;
   blooms_breakdown?: {
     highest_level_achieved?: string;
@@ -97,6 +109,9 @@ interface ResultsData {
     accuracy_percentage: number;
     total_time_seconds: number;
     percentile: number | null;
+    confidence_score?: number;
+    confidence_label?: string;
+    flags?: AssessmentFlag[];
   };
   skills: SkillResult[];
   recommendations: string[];
@@ -303,12 +318,12 @@ export const CandidateResultsDetail = () => {
       <Card>
         <CardContent className="py-4">
           <div className="flex items-center gap-6">
-            {/* Left: Gauge - compact size */}
+            {/* Left: Star Rating */}
             <div className="flex-shrink-0">
-              <ProficiencyGauge level={proficiencyLevel} size="sm" />
+              <StarRating level={proficiencyLevel} size="md" />
             </div>
 
-            {/* Stats - inline with gauge */}
+            {/* Stats - inline with stars */}
             <div className="flex items-center gap-6">
               <div className="text-center">
                 <div className="text-xl font-bold">{Math.round(results.overall.total_time_seconds / 60)}m</div>
@@ -318,25 +333,42 @@ export const CandidateResultsDetail = () => {
                 <div className="text-xl font-bold">{scoreDisplay}</div>
                 <div className="text-xs text-muted-foreground">Score</div>
               </div>
-              <div className="text-center">
-                <div className="text-xl font-bold">{results.overall.accuracy_percentage}%</div>
-                <div className="text-xs text-muted-foreground">Accuracy</div>
-              </div>
             </div>
 
-            {/* Spacer */}
-            <div className="flex-1" />
-
-            {/* Right: Pass/Fail Badge */}
-            {hasLLMReport && passFail && (
-              <Badge className={cn(
-                "text-base font-semibold px-3 py-1.5",
-                passFail === 'PASS' ? 'bg-green-500/10 text-green-600' : 'bg-red-500/10 text-red-600'
-              )}>
-                {passFail === 'PASS' ? <CheckCircle className="h-4 w-4 mr-1.5 inline" /> : <X className="h-4 w-4 mr-1.5 inline" />}
-                {passFail}
-              </Badge>
+            {/* One-liner summary */}
+            {hasLLMReport && llmReport.performance_summary && (
+              <div className="flex-1 px-4">
+                <p className="text-sm text-muted-foreground italic">{llmReport.performance_summary}</p>
+              </div>
             )}
+
+            {/* Spacer if no summary */}
+            {(!hasLLMReport || !llmReport.performance_summary) && <div className="flex-1" />}
+
+            {/* Right: Badges */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {/* Confidence Badge */}
+              {hasLLMReport && llmReport.metadata.confidence_label && (
+                <Badge className={cn(
+                  "text-sm px-3 py-1",
+                  llmReport.metadata.confidence_label === 'High' ? 'bg-green-500/10 text-green-600 border-green-200' :
+                  llmReport.metadata.confidence_label === 'Medium' ? 'bg-amber-500/10 text-amber-600 border-amber-200' :
+                  'bg-orange-500/10 text-orange-600 border-orange-200'
+                )} variant="outline">
+                  {llmReport.metadata.confidence_label} Confidence
+                </Badge>
+              )}
+              {/* Overall-level flags (e.g., ASSESSMENT_INCOMPLETE) */}
+              {results.overall.flags && results.overall.flags.filter(f => !f.task_id).map((flag, fi) => (
+                <Badge key={fi} variant="outline" className={cn(
+                  "text-sm px-3 py-1",
+                  flag.severity === 'HIGH' ? 'bg-red-500/10 text-red-600 border-red-200' :
+                  'bg-amber-500/10 text-amber-600 border-amber-200'
+                )}>
+                  {flag.type.replace(/_/g, ' ')}
+                </Badge>
+              ))}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -376,12 +408,32 @@ export const CandidateResultsDetail = () => {
                     <div className="flex items-center justify-between w-full pr-4">
                       <div className="flex items-center gap-3">
                         <span className="font-semibold">{task.task_name}</span>
+                        {/* Task-level flags */}
+                        {task.flags && task.flags.length > 0 && task.flags.map((flag, fi) => (
+                          <Badge key={fi} variant="outline" className={cn(
+                            "text-xs",
+                            flag.severity === 'HIGH' ? 'bg-red-500/10 text-red-600 border-red-200' :
+                            'bg-amber-500/10 text-amber-600 border-amber-200'
+                          )}>
+                            {flag.type.replace(/_/g, ' ')}
+                          </Badge>
+                        ))}
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-sm font-bold">{task.task_score?.toFixed(0)}%</span>
                         <Badge variant={task.status === 'proficient' ? 'default' : task.status === 'needs_practice' ? 'secondary' : 'outline'}>
                           {task.status?.replace('_', ' ')}
                         </Badge>
+                        {task.confidence_label && (
+                          <Badge variant="outline" className={cn(
+                            "text-xs",
+                            task.confidence_label === 'High' ? 'text-green-600 border-green-200' :
+                            task.confidence_label === 'Medium' ? 'text-amber-600 border-amber-200' :
+                            'text-orange-600 border-orange-200'
+                          )}>
+                            {task.confidence_label}
+                          </Badge>
+                        )}
                       </div>
                     </div>
                   </AccordionTrigger>
@@ -420,7 +472,7 @@ export const CandidateResultsDetail = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Focus Areas */}
               {llmReport.recommendations.focus_areas && llmReport.recommendations.focus_areas.length > 0 && (
                 <div>
@@ -448,19 +500,6 @@ export const CandidateResultsDetail = () => {
                       </li>
                     ))}
                   </ul>
-                </div>
-              )}
-
-              {/* Target Level */}
-              {llmReport.recommendations.target_bloom_level && (
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-3">Target Level</h4>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm">Work towards:</span>
-                    <Badge variant="outline" className="capitalize">
-                      {llmReport.recommendations.target_bloom_level}
-                    </Badge>
-                  </div>
                 </div>
               )}
             </div>

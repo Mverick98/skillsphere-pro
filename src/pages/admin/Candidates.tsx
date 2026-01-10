@@ -69,6 +69,17 @@ export const AdminCandidates = () => {
     }
   }, [search, statusFilter, templateFilter]);
 
+  // Auto-refresh when there are candidates with reports generating
+  useEffect(() => {
+    const hasGenerating = candidates.some(c => c.status === 'completed' && !c.report_ready);
+    if (hasGenerating && !isLoading) {
+      const interval = setInterval(() => {
+        loadCandidates();
+      }, 5000); // Refresh every 5 seconds
+      return () => clearInterval(interval);
+    }
+  }, [candidates, isLoading]);
+
   const handleResendInvite = async (inviteId: string) => {
     await api.admin.resendInvite(inviteId);
     toast({ title: 'Invitation resent', description: 'The invitation email has been sent again' });
@@ -197,16 +208,22 @@ export const AdminCandidates = () => {
                   <TableCell>
                     <div className="flex gap-1">
                       {candidate.status === 'completed' && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => navigate(`/admin/reports/${candidate.invite_id}`)}
-                          disabled={!candidate.report_ready}
-                          title={!candidate.report_ready ? 'Report is being generated...' : 'View Report'}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          {candidate.report_ready ? 'Report' : 'Generating...'}
-                        </Button>
+                        candidate.report_ready ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate(`/admin/reports/${candidate.invite_id}`)}
+                            title="View Report"
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            Report
+                          </Button>
+                        ) : (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground px-3 py-1.5">
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                            <span>Generating...</span>
+                          </div>
+                        )
                       )}
                       {candidate.status === 'pending' && (
                         <Button
