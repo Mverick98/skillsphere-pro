@@ -145,6 +145,15 @@ const getViolationIcon = (type: string) => {
   }
 };
 
+// Helper to append auth token to media URLs (for admin portal)
+const getAuthenticatedUrl = (url: string | undefined, isAdmin: boolean): string | undefined => {
+  if (!url || !isAdmin) return url;
+  const token = localStorage.getItem('auth_token');
+  if (!token) return url;
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}token=${token}`;
+};
+
 export const ProctoringEvidence = ({
   assessmentId,
   showVideoClips = false,
@@ -308,7 +317,7 @@ export const ProctoringEvidence = ({
                         {showVideoClips && violation.snapshot_url && (
                           <div className="mt-3">
                             <img
-                              src={violation.snapshot_url}
+                              src={getAuthenticatedUrl(violation.snapshot_url, isAdmin)}
                               alt={`Evidence: ${violation.type}`}
                               className="w-full max-w-md rounded border"
                             />
@@ -320,7 +329,7 @@ export const ProctoringEvidence = ({
                           <div className="mt-3">
                             <video
                               controls
-                              src={violation.clip_url}
+                              src={getAuthenticatedUrl(violation.clip_url, isAdmin)}
                               className="w-full max-w-md rounded border"
                               preload="metadata"
                             >
