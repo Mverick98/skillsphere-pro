@@ -54,14 +54,16 @@ export const useBrowserProctoring = ({
   );
 
   // 1. Fullscreen enforcement
-  const requestFullscreen = useCallback(async () => {
-    if (!enabled) return;
+  const requestFullscreen = useCallback(async (): Promise<boolean> => {
+    if (!enabled) return false;
 
     try {
       await document.documentElement.requestFullscreen();
       setState(prev => ({ ...prev, isFullscreen: true }));
+      return true;
     } catch (error) {
       console.warn('Failed to enter fullscreen:', error);
+      return false;
     }
   }, [enabled]);
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useNavigate, useParams, useLocation, useBlocker } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -93,6 +93,23 @@ export const CandidateAssessment = () => {
   const [showMediaBlockedWarning, setShowMediaBlockedWarning] = useState(false);
   const [mediaBlockedCount, setMediaBlockedCount] = useState(0);
   const [isMediaPaused, setIsMediaPaused] = useState(false);
+  const [isAssessmentCompleted, setIsAssessmentCompleted] = useState(false);
+  const [showNavigationWarning, setShowNavigationWarning] = useState(false);
+
+  // Block navigation during active assessment
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      !isAssessmentCompleted &&
+      !!state?.assessmentId &&
+      currentLocation.pathname !== nextLocation.pathname
+  );
+
+  // Show warning when navigation is blocked
+  useEffect(() => {
+    if (blocker.state === 'blocked') {
+      setShowNavigationWarning(true);
+    }
+  }, [blocker.state]);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const tabAwayStartRef = useRef<number | null>(null);
@@ -411,6 +428,9 @@ export const CandidateAssessment = () => {
 
     // Complete assessment
     await api.assessments.complete(state.assessmentId);
+
+    // Mark as completed to allow navigation
+    setIsAssessmentCompleted(true);
 
     // Navigate to results with assessment type info
     const isSkillAssessment = assessmentConfig?.assessmentType === 'skill';
@@ -821,8 +841,12 @@ export const CandidateAssessment = () => {
       </Dialog>
 
       {/* Fullscreen Warning Modal */}
-      <Dialog open={showFullscreenWarning} onOpenChange={setShowFullscreenWarning}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog open={showFullscreenWarning} onOpenChange={() => {}}>
+        <DialogContent
+          className="sm:max-w-md"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2 rounded-lg bg-destructive/10">
@@ -839,16 +863,72 @@ export const CandidateAssessment = () => {
               )}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="mt-4">
+          <DialogFooter className="mt-4 flex-col gap-2">
             <Button
-              onClick={() => {
-                requestFullscreen();
-                setShowFullscreenWarning(false);
+              onClick={async () => {
+                const success = await requestFullscreen();
+                if (success) {
+                  setShowFullscreenWarning(false);
+                }
               }}
               className="w-full"
             >
               <Maximize2 className="w-4 h-4 mr-2" />
               Return to Fullscreen
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowFullscreenWarning(false);
+                setIsAssessmentCompleted(true); // Allow navigation
+                navigate('/dashboard');
+              }}
+              className="w-full text-destructive hover:text-destructive"
+            >
+              Cancel Assessment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Navigation Warning Modal */}
+      <Dialog open={showNavigationWarning} onOpenChange={() => {}}>
+        <DialogContent
+          className="sm:max-w-md"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 rounded-lg bg-destructive/10">
+                <AlertTriangle className="w-5 h-5 text-destructive" />
+              </div>
+              <DialogTitle>Leave Assessment?</DialogTitle>
+            </div>
+            <DialogDescription>
+              You have an assessment in progress. If you leave now, your assessment will be marked as incomplete and you may not be able to retake it.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4 flex-col gap-2">
+            <Button
+              onClick={() => {
+                setShowNavigationWarning(false);
+                blocker.reset?.();
+              }}
+              className="w-full"
+            >
+              Continue Assessment
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowNavigationWarning(false);
+                setIsAssessmentCompleted(true);
+                blocker.proceed?.();
+              }}
+              className="w-full text-destructive hover:text-destructive"
+            >
+              Leave Anyway
             </Button>
           </DialogFooter>
         </DialogContent>
