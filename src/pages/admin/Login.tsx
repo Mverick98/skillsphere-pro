@@ -30,6 +30,10 @@ export const AdminLogin = () => {
     setIsLoading(false);
 
     if (success) {
+      // Defensive: if an admin somehow had a candidate invite stashed
+      // (e.g., they clicked an invite link by accident), clear it so the
+      // candidate-side post-login redirect doesn't fire on the next visit.
+      sessionStorage.removeItem('pending_invite');
       navigate('/admin/dashboard');
     } else {
       toast({ title: 'Error', description: 'Invalid credentials', variant: 'destructive' });

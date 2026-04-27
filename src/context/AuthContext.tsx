@@ -123,6 +123,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     sessionStorage.removeItem('auth_token');
     sessionStorage.removeItem('user_type');
     sessionStorage.removeItem('user_data');
+    // Drop any stashed invite redirect from a prior visit — otherwise a
+    // user logging back in cleanly via /login would get hijacked to a
+    // stale invite from before they logged out.
+    sessionStorage.removeItem('pending_invite');
     setState({
       isAuthenticated: false,
       user: null,

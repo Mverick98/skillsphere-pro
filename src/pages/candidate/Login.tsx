@@ -63,7 +63,17 @@ const CandidateLogin = () => {
     setIsLoading(false);
 
     if (result.success) {
-      // Redirect to role selection if user doesn't have a job role
+      // If the candidate arrived here via an invite link, InviteLanding stashed
+      // the specific invite_id under sessionStorage.pending_invite. Send them
+      // straight to that test's pre-test page instead of the generic dashboard.
+      const pendingInviteId = sessionStorage.getItem('pending_invite');
+      if (pendingInviteId) {
+        sessionStorage.removeItem('pending_invite');
+        navigate(`/tests/${pendingInviteId}`);
+        return;
+      }
+
+      // Otherwise: role-selection if missing, else dashboard
       if (result.needsRoleSelection) {
         navigate('/select-role');
       } else {
@@ -98,6 +108,14 @@ const CandidateLogin = () => {
 
     if (success) {
       toast({ title: 'Account created', description: 'Welcome to SkillSphere!' });
+      // Same invite-link handoff as login: jump straight to the pre-test page
+      // if the registration was kicked off from an invite link.
+      const pendingInviteId = sessionStorage.getItem('pending_invite');
+      if (pendingInviteId) {
+        sessionStorage.removeItem('pending_invite');
+        navigate(`/tests/${pendingInviteId}`);
+        return;
+      }
       navigate('/dashboard');
     } else {
       toast({ title: 'Error', description: 'Failed to create account', variant: 'destructive' });
