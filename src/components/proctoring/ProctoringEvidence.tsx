@@ -148,7 +148,7 @@ const getViolationIcon = (type: string) => {
 // Helper to append auth token to media URLs (for admin portal)
 const getAuthenticatedUrl = (url: string | undefined, isAdmin: boolean): string | undefined => {
   if (!url || !isAdmin) return url;
-  const token = localStorage.getItem('auth_token');
+  const token = sessionStorage.getItem('auth_token');
   if (!token) return url;
   const separator = url.includes('?') ? '&' : '?';
   return `${url}${separator}token=${token}`;

@@ -45,13 +45,13 @@ const SelectRole = () => {
         return;
       }
 
-      // Update localStorage with new role info
-      const userData = localStorage.getItem('user_data');
+      // Update sessionStorage with new role info
+      const userData = sessionStorage.getItem('user_data');
       if (userData) {
         const user = JSON.parse(userData);
         user.job_role_id = result.job_role_id;
         user.job_role_name = result.job_role_name;
-        localStorage.setItem('user_data', JSON.stringify(user));
+        sessionStorage.setItem('user_data', JSON.stringify(user));
       }
 
       toast({ title: 'Success', description: 'Job role selected successfully!' });

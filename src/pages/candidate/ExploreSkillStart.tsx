@@ -78,7 +78,7 @@ export const ExploreSkillStart = () => {
       return;
     }
 
-    const userData = localStorage.getItem('user_data');
+    const userData = sessionStorage.getItem('user_data');
     const profile = userData ? JSON.parse(userData) : {};
 
     navigate('/assessment/skill/proctoring', {

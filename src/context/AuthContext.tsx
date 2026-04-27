@@ -48,10 +48,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   // Check for existing session on mount
+  // Using sessionStorage so each tab has independent auth (admin + candidate can be open simultaneously)
   useEffect(() => {
-    const token = localStorage.getItem('auth_token');
-    const userType = localStorage.getItem('user_type') as 'admin' | 'candidate' | null;
-    const userData = localStorage.getItem('user_data');
+    const token = sessionStorage.getItem('auth_token');
+    const userType = sessionStorage.getItem('user_type') as 'admin' | 'candidate' | null;
+    const userData = sessionStorage.getItem('user_data');
 
     if (token && userType && userData) {
       setState({
@@ -68,9 +69,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginAdmin = useCallback(async (email: string, password: string) => {
     const result = await api.admin.login(email, password);
     if (result.success && result.token && result.user) {
-      localStorage.setItem('auth_token', result.token);
-      localStorage.setItem('user_type', 'admin');
-      localStorage.setItem('user_data', JSON.stringify(result.user));
+      sessionStorage.setItem('auth_token', result.token);
+      sessionStorage.setItem('user_type', 'admin');
+      sessionStorage.setItem('user_data', JSON.stringify(result.user));
       setState({
         isAuthenticated: true,
         user: result.user,
@@ -85,9 +86,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginCandidate = useCallback(async (email: string, password: string): Promise<LoginResult> => {
     const result = await api.candidate.login(email, password);
     if (result.success && result.token && result.user) {
-      localStorage.setItem('auth_token', result.token);
-      localStorage.setItem('user_type', 'candidate');
-      localStorage.setItem('user_data', JSON.stringify(result.user));
+      sessionStorage.setItem('auth_token', result.token);
+      sessionStorage.setItem('user_type', 'candidate');
+      sessionStorage.setItem('user_data', JSON.stringify(result.user));
       setState({
         isAuthenticated: true,
         user: result.user,
@@ -104,9 +105,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const registerCandidate = useCallback(async (name: string, email: string, password: string, job_role_id: string) => {
     const result = await api.candidate.register(name, email, password, job_role_id);
     if (result.success && result.token && result.user) {
-      localStorage.setItem('auth_token', result.token);
-      localStorage.setItem('user_type', 'candidate');
-      localStorage.setItem('user_data', JSON.stringify(result.user));
+      sessionStorage.setItem('auth_token', result.token);
+      sessionStorage.setItem('user_type', 'candidate');
+      sessionStorage.setItem('user_data', JSON.stringify(result.user));
       setState({
         isAuthenticated: true,
         user: result.user,
@@ -119,9 +120,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const logout = useCallback(() => {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('user_type');
-    localStorage.removeItem('user_data');
+    sessionStorage.removeItem('auth_token');
+    sessionStorage.removeItem('user_type');
+    sessionStorage.removeItem('user_data');
     setState({
       isAuthenticated: false,
       user: null,

@@ -19,12 +19,12 @@ export const InviteLanding = () => {
         
         if (result.valid) {
           // Redirect to pre-test screen or login
-          const authToken = localStorage.getItem('auth_token');
+          const authToken = sessionStorage.getItem('auth_token');
           if (authToken) {
             navigate(`/tests/${result.invite_id}`);
           } else {
             // Store invite ID and redirect to login
-            localStorage.setItem('pending_invite', result.invite_id);
+            sessionStorage.setItem('pending_invite', result.invite_id);
             navigate('/login');
           }
         } else {

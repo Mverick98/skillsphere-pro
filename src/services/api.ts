@@ -14,7 +14,7 @@ const apiClient = axios.create({
 // Request interceptor - add auth token
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('auth_token');
+    const token = sessionStorage.getItem('auth_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -29,12 +29,12 @@ apiClient.interceptors.response.use(
   (error: AxiosError) => {
     if (error.response?.status === 401) {
       // Clear auth data and redirect to login
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user_type');
-      localStorage.removeItem('user_data');
+      sessionStorage.removeItem('auth_token');
+      sessionStorage.removeItem('user_type');
+      sessionStorage.removeItem('user_data');
 
       // Determine which login page to redirect to
-      const userType = localStorage.getItem('user_type');
+      const userType = sessionStorage.getItem('user_type');
       if (userType === 'admin') {
         window.location.href = '/admin/login';
       } else {

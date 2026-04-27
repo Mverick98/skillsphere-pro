@@ -47,8 +47,8 @@ export const SkillAssessment = () => {
     const loadData = async () => {
       setIsLoading(true);
 
-      // Get user profile from localStorage (set during login)
-      const userData = localStorage.getItem('user_data');
+      // Get user profile from sessionStorage (set during login)
+      const userData = sessionStorage.getItem('user_data');
       if (userData) {
         const profile = JSON.parse(userData) as UserProfile;
         setUserProfile(profile);

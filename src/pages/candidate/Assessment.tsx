@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate, useParams, useLocation, useBlocker } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +23,7 @@ import {
 import { api } from '@/services/api';
 import { useBrowserProctoring } from '@/hooks/useBrowserProctoring';
 import { useProctoringRecorder } from '@/hooks/useProctoringRecorder';
+import { useAssessmentBlocker } from '@/hooks/useAssessmentBlocker';
 import { cn } from '@/lib/utils';
 
 interface Question {
@@ -93,24 +94,10 @@ export const CandidateAssessment = () => {
   const [showMediaBlockedWarning, setShowMediaBlockedWarning] = useState(false);
   const [mediaBlockedCount, setMediaBlockedCount] = useState(0);
   const [isMediaPaused, setIsMediaPaused] = useState(false);
-  const [isAssessmentCompleted, setIsAssessmentCompleted] = useState(false);
   const [showNavigationWarning, setShowNavigationWarning] = useState(false);
+  const [isAssessmentCompleted, setIsAssessmentCompleted] = useState(false);
 
-  // Block navigation during active assessment
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) =>
-      !isAssessmentCompleted &&
-      !!state?.assessmentId &&
-      currentLocation.pathname !== nextLocation.pathname
-  );
-
-  // Show warning when navigation is blocked
-  useEffect(() => {
-    if (blocker.state === 'blocked') {
-      setShowNavigationWarning(true);
-    }
-  }, [blocker.state]);
-
+  
   const videoRef = useRef<HTMLVideoElement>(null);
   const tabAwayStartRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -142,6 +129,12 @@ export const CandidateAssessment = () => {
     externalStream: mediaStream,
     onError: (error) => console.error('[Recording] Error:', error),
   });
+
+  // Navigation blocker - prevents accidental back button during assessment
+  const { unblock } = useAssessmentBlocker(
+    !!state?.assessmentId && !isAssessmentCompleted,
+    () => setShowNavigationWarning(true)
+  );
 
   // Get assessment config from state (skill assessment)
   const assessmentConfig = location.state as {
@@ -412,6 +405,10 @@ export const CandidateAssessment = () => {
   const finishAssessment = useCallback(async () => {
     if (!state) return;
 
+    // Mark assessment as completed to allow navigation
+    setIsAssessmentCompleted(true);
+    unblock();
+
     // Stop recording first (uploads remaining chunks and finalizes)
     console.log('[Proctoring] Stopping recording...');
     await stopRecording();
@@ -429,9 +426,6 @@ export const CandidateAssessment = () => {
     // Complete assessment
     await api.assessments.complete(state.assessmentId);
 
-    // Mark as completed to allow navigation
-    setIsAssessmentCompleted(true);
-
     // Navigate to results with assessment type info
     const isSkillAssessment = assessmentConfig?.assessmentType === 'skill';
     navigate(`/results/${state.assessmentId}`, {
@@ -440,7 +434,7 @@ export const CandidateAssessment = () => {
         skillName: isSkillAssessment ? currentQuestion?.skillName : null,
       }
     });
-  }, [state, navigate, assessmentConfig, currentQuestion, stopRecording]);
+  }, [state, navigate, assessmentConfig, currentQuestion, stopRecording, unblock]);
 
   // Store next question from submit response
   const [nextQuestionData, setNextQuestionData] = useState<Question | null>(null);
@@ -880,7 +874,6 @@ export const CandidateAssessment = () => {
               variant="outline"
               onClick={() => {
                 setShowFullscreenWarning(false);
-                setIsAssessmentCompleted(true); // Allow navigation
                 navigate('/dashboard');
               }}
               className="w-full text-destructive hover:text-destructive"
@@ -913,7 +906,6 @@ export const CandidateAssessment = () => {
             <Button
               onClick={() => {
                 setShowNavigationWarning(false);
-                blocker.reset?.();
               }}
               className="w-full"
             >
@@ -924,7 +916,8 @@ export const CandidateAssessment = () => {
               onClick={() => {
                 setShowNavigationWarning(false);
                 setIsAssessmentCompleted(true);
-                blocker.proceed?.();
+                unblock();
+                navigate('/dashboard');
               }}
               className="w-full text-destructive hover:text-destructive"
             >

@@ -28,13 +28,17 @@ export const CandidateProctoring = () => {
 
   const enableCamera = async () => {
     try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      // Request BOTH camera AND microphone
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: true
+      });
       setStream(mediaStream);
       setCameraEnabled(true);
     } catch {
       toast({
-        title: 'Camera access denied',
-        description: 'Please allow camera access to continue with the assessment',
+        title: 'Camera/Microphone access denied',
+        description: 'Please allow camera and microphone access to continue with the assessment',
         variant: 'destructive'
       });
     }
@@ -131,11 +135,11 @@ export const CandidateProctoring = () => {
             )}
           </div>
 
-          {/* Enable Camera Button */}
+          {/* Enable Camera & Mic Button */}
           {!cameraEnabled && (
             <Button onClick={enableCamera} className="w-full">
               <Camera className="h-4 w-4 mr-2" />
-              Enable Camera
+              Enable Camera & Microphone
             </Button>
           )}
 
