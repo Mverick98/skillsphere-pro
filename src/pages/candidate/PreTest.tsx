@@ -4,6 +4,7 @@ import { ArrowLeft, Clock, AlertTriangle, Camera, Monitor, Timer } from 'lucide-
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
 import { api } from '@/services/api';
 
 interface TestDetails {
@@ -21,19 +22,32 @@ interface TestDetails {
 export const PreTest = () => {
   const { inviteId } = useParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [test, setTest] = useState<TestDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadTest = async () => {
-      if (inviteId) {
+      if (!inviteId) return;
+      try {
         const data = await api.candidate.getTestDetails(inviteId);
         setTest(data);
-        setIsLoading(false);
+      } catch (error: unknown) {
+        // 403 = invite belongs to a different account (post-login-redirect from
+        // another user's link); 404 = invite doesn't exist. Either way, show
+        // the backend's detail message and bounce to dashboard instead of
+        // hanging on the loading spinner.
+        const detail =
+          (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+          'This test could not be loaded.';
+        toast({ title: 'Test unavailable', description: detail, variant: 'destructive' });
+        navigate('/dashboard');
+        return;
       }
+      setIsLoading(false);
     };
     loadTest();
-  }, [inviteId]);
+  }, [inviteId, navigate, toast]);
 
   const handleBegin = () => {
     // Navigate to assessment with proctoring consent
