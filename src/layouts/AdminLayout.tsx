@@ -4,7 +4,7 @@ import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 
 export const AdminLayout = () => {
-  const { isAuthenticated, userType, isLoading } = useAuth();
+  const { isAuthenticated, userType, isLoading, user } = useAuth();
 
   if (isLoading) {
     return (
@@ -24,7 +24,8 @@ export const AdminLayout = () => {
       <div className="flex-1 flex flex-col">
         <AdminHeader />
         <main className="flex-1 p-6 overflow-auto">
-          <Outlet />
+          {/* key={user?.id} forces full remount on admin switch — see CandidateLayout for context */}
+          <Outlet key={user?.id} />
         </main>
       </div>
     </div>
