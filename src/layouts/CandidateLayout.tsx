@@ -89,7 +89,14 @@ export const CandidateLayout = () => {
       {/* Main Content */}
       <main className="flex-1 p-6 overflow-auto">
         <div className="max-w-6xl mx-auto">
-          <Outlet />
+          {/*
+            key={user?.id} forces a full unmount+remount of the entire route
+            subtree whenever the logged-in user changes. Without this, components
+            with `useEffect(() => fetch(), [])` keep stale data across login
+            switches in the same tab. See spec: stop stale React state across
+            login switches (no-more-hotfixes branch).
+          */}
+          <Outlet key={user?.id} />
         </div>
       </main>
     </div>
