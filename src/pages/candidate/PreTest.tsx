@@ -17,6 +17,7 @@ interface TestDetails {
   task_count: number;
   time_limit_minutes: number;
   status: string;
+  assessment_id?: string;  // populated when invite is in_progress/completed
 }
 
 export const PreTest = () => {
@@ -135,10 +136,28 @@ export const PreTest = () => {
             </ul>
           </div>
 
-          {/* Begin Button */}
-          <Button onClick={handleBegin} size="lg" className="w-full">
-            Begin Assessment
-          </Button>
+          {/* Status-aware CTA */}
+          {test.status === 'completed' ? (
+            <Button
+              onClick={() =>
+                test.assessment_id
+                  ? navigate(`/results/${test.assessment_id}/detail`)
+                  : navigate('/dashboard')
+              }
+              size="lg"
+              className="w-full"
+            >
+              View Your Results
+            </Button>
+          ) : test.status === 'in_progress' ? (
+            <Button onClick={handleBegin} size="lg" className="w-full">
+              Resume Assessment
+            </Button>
+          ) : (
+            <Button onClick={handleBegin} size="lg" className="w-full">
+              Begin Assessment
+            </Button>
+          )}
         </CardContent>
       </Card>
     </div>

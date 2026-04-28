@@ -21,6 +21,7 @@ import {
   Camera
 } from 'lucide-react';
 import { api } from '@/services/api';
+import { useToast } from '@/hooks/use-toast';
 import { useBrowserProctoring } from '@/hooks/useBrowserProctoring';
 import { useProctoringRecorder } from '@/hooks/useProctoringRecorder';
 import { useAssessmentBlocker } from '@/hooks/useAssessmentBlocker';
@@ -68,6 +69,7 @@ export const CandidateAssessment = () => {
   const { inviteId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const [state, setState] = useState<AssessmentState | null>(null);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -183,14 +185,22 @@ export const CandidateAssessment = () => {
         });
         setTimeRemaining(timeLimit);
         setIsLoading(false);
-      } catch (error) {
+      } catch (error: unknown) {
+        // Surface the backend's reason (e.g., "Test already completed",
+        // "This invite is for a different account") instead of a silent
+        // redirect. Race-case: PreTest loaded a 'registered' invite, but
+        // someone else completed it before the user clicked Begin.
+        const detail =
+          (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+          'Could not start the assessment.';
+        toast({ title: 'Test unavailable', description: detail, variant: 'destructive' });
         console.error('Failed to start assessment:', error);
         navigate('/dashboard');
       }
     };
 
     initAssessment();
-  }, [inviteId, assessmentConfig, navigate]);
+  }, [inviteId, assessmentConfig, navigate, toast]);
 
   // Handle track ended (user blocked camera/mic)
   const handleTrackEnded = useCallback((trackType: string) => {
