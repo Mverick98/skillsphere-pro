@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Clock, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Clock, CheckCircle, PlayCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +18,7 @@ interface Test {
   completed_at: string | null;
   task_count: number;
   time_limit_minutes: number;
+  assessment_id?: string;  // populated when in_progress/completed
 }
 
 export const CandidateTests = () => {
@@ -71,55 +73,90 @@ export const CandidateTests = () => {
 
       {/* Test Cards */}
       <div className="space-y-4">
-        {tests.map((test) => (
-          <Card key={test.invite_id} className="overflow-hidden">
-            <CardContent className="p-6">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-semibold">{test.template_name}</h3>
-                    {['pending', 'registered'].includes(test.status) ? (
-                      <Badge variant="outline" className="bg-warning/10 text-warning border-warning/30">
-                        Pending
-                      </Badge>
+        {tests.map((test) => {
+          const isCompleted = test.status === 'completed';
+          const isInProgress = test.status === 'in_progress';
+          return (
+            <Card
+              key={test.invite_id}
+              className={cn(
+                'overflow-hidden transition-opacity',
+                isCompleted && 'opacity-70'   // visually muted for done tests
+              )}
+            >
+              <CardContent className="p-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="text-lg font-semibold">{test.template_name}</h3>
+                      {isCompleted ? (
+                        <Badge variant="outline" className="bg-success/10 text-success border-success/30">
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          Completed
+                        </Badge>
+                      ) : isInProgress ? (
+                        <Badge variant="outline" className="bg-info/10 text-info border-info/30">
+                          <PlayCircle className="h-3 w-3 mr-1" />
+                          In Progress
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-warning/10 text-warning border-warning/30">
+                          Pending
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-muted-foreground mb-3">Role: {test.role_name}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {test.skills.map((skill) => (
+                        <Badge key={skill.id} variant="secondary">{skill.name}</Badge>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-end gap-2">
+                    {isCompleted ? (
+                      <>
+                        <p className="text-2xl font-bold text-success">
+                          {test.score !== null ? `${Math.round(test.score)}%` : ''}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Completed: {test.completed_at ? new Date(test.completed_at).toLocaleDateString() : '-'}
+                        </p>
+                        {test.assessment_id && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate(`/results/${test.assessment_id}/detail`)}
+                          >
+                            View Results
+                          </Button>
+                        )}
+                      </>
+                    ) : isInProgress ? (
+                      <>
+                        <p className="text-sm text-muted-foreground">
+                          Started: {test.invited_at ? new Date(test.invited_at).toLocaleDateString() : '-'}
+                        </p>
+                        <Button onClick={() => navigate(`/tests/${test.invite_id}`)}>
+                          Resume Test
+                        </Button>
+                      </>
                     ) : (
-                      <Badge variant="outline" className="bg-success/10 text-success border-success/30">
-                        <CheckCircle className="h-3 w-3 mr-1" />
-                        Completed
-                      </Badge>
+                      <>
+                        <p className="text-sm text-muted-foreground">
+                          Invited: {new Date(test.invited_at).toLocaleDateString()}
+                        </p>
+                        <Button onClick={() => navigate(`/tests/${test.invite_id}`)}>
+                          Start Test
+                        </Button>
+                      </>
                     )}
                   </div>
-                  <p className="text-muted-foreground mb-3">Role: {test.role_name}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {test.skills.map((skill) => (
-                      <Badge key={skill.id} variant="secondary">{skill.name}</Badge>
-                    ))}
-                  </div>
                 </div>
-                
-                <div className="flex flex-col items-end gap-2">
-                  {['pending', 'registered'].includes(test.status) ? (
-                    <>
-                      <p className="text-sm text-muted-foreground">
-                        Invited: {new Date(test.invited_at).toLocaleDateString()}
-                      </p>
-                      <Button onClick={() => navigate(`/tests/${test.invite_id}`)}>
-                        Start Test
-                      </Button>
-                    </>
-                  ) : (
-                    <div className="text-right">
-                      <p className="text-2xl font-bold text-success">{test.score}%</p>
-                      <p className="text-sm text-muted-foreground">
-                        Completed: {test.completed_at ? new Date(test.completed_at).toLocaleDateString() : '-'}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Clock, AlertTriangle, Camera, Monitor, Timer } from 'lucide-react';
+import { ArrowLeft, Clock, AlertTriangle, Camera, Monitor, Timer, CheckCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -63,6 +63,60 @@ export const PreTest = () => {
     );
   }
 
+  // Completed assessments get a retrospective layout — no time limit, no
+  // proctoring warnings, no "Ready to Begin" header. Just the result.
+  if (test.status === 'completed') {
+    return (
+      <div className="max-w-2xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/tests')}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-2xl font-bold">Assessment Complete</h1>
+        </div>
+
+        <Card>
+          <CardContent className="p-8">
+            <div className="flex flex-col items-center text-center mb-8">
+              <div className="h-16 w-16 rounded-full bg-success/10 flex items-center justify-center mb-4">
+                <CheckCircle className="h-8 w-8 text-success" />
+              </div>
+              <h2 className="text-2xl font-bold mb-2">{test.template_name}</h2>
+              <p className="text-muted-foreground">You've already completed this assessment.</p>
+            </div>
+
+            {/* Skills tested (compact, no time-limit / proctoring noise) */}
+            {test.skills.length > 0 && (
+              <div className="mb-8">
+                <p className="text-sm text-muted-foreground mb-2">Skills tested:</p>
+                <div className="flex flex-wrap gap-2">
+                  {test.skills.map((skill) => (
+                    <Badge key={skill.id} variant="secondary">{skill.name}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <Button
+              onClick={() =>
+                test.assessment_id
+                  ? navigate(`/results/${test.assessment_id}/detail`)
+                  : navigate('/dashboard')
+              }
+              size="lg"
+              className="w-full"
+            >
+              View Your Results
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Pre-test layout — for registered / pending / in_progress.
+  const ctaLabel = test.status === 'in_progress' ? 'Resume Assessment' : 'Begin Assessment';
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Header */}
@@ -136,28 +190,9 @@ export const PreTest = () => {
             </ul>
           </div>
 
-          {/* Status-aware CTA */}
-          {test.status === 'completed' ? (
-            <Button
-              onClick={() =>
-                test.assessment_id
-                  ? navigate(`/results/${test.assessment_id}/detail`)
-                  : navigate('/dashboard')
-              }
-              size="lg"
-              className="w-full"
-            >
-              View Your Results
-            </Button>
-          ) : test.status === 'in_progress' ? (
-            <Button onClick={handleBegin} size="lg" className="w-full">
-              Resume Assessment
-            </Button>
-          ) : (
-            <Button onClick={handleBegin} size="lg" className="w-full">
-              Begin Assessment
-            </Button>
-          )}
+          <Button onClick={handleBegin} size="lg" className="w-full">
+            {ctaLabel}
+          </Button>
         </CardContent>
       </Card>
     </div>
